@@ -324,15 +324,6 @@
             </div>
             
             <div class="control-group">
-                <label for="profile">Risk Profile</label>
-                <select id="profile">
-                    <option value="">Default (Auto)</option>
-                    <option value="aggressive">Aggressive</option>
-                    <option value="conservative">Conservative</option>
-                </select>
-            </div>
-
-            <div class="control-group">
                 <label for="horizon">Prediction Horizon</label>
                 <select id="horizon">
                     <option value="1">1 Day</option>
@@ -445,7 +436,6 @@
             const tickerSelect = document.getElementById('ticker');
             const ticker = tickerSelect.value;
             const instrumentName = tickerSelect.options[tickerSelect.selectedIndex].getAttribute('data-name');
-            const profile = document.getElementById('profile').value;
             const horizon = document.getElementById('horizon').value;
             
             const loadingEl = document.getElementById('loading');
@@ -461,7 +451,6 @@
 
             try {
                 let predictUrl = `/predict?ticker=${encodeURIComponent(ticker)}&instrument_name=${encodeURIComponent(instrumentName)}`;
-                if (profile) predictUrl += `&profile=${profile}`;
                 if (horizon) predictUrl += `&horizon=${horizon}`;
 
                 const predictRes = await fetch(predictUrl);

@@ -32,52 +32,34 @@ except Exception:
 
 INSTRUMENT_SETTINGS = {
     "EURUSD=X": {
-        "default_profile": "Консервативный",
+        "default_profile": "Default",
         "profiles": {
-            "Консервативный": {
+            "Default": {
                 "horizon": 7,
                 "lower_q": 0.33,
                 "upper_q": 0.66,
                 "cls_conf_default": 0.55,
             },
-            "Агрессивный": {
-                "horizon": 5,
-                "lower_q": 0.40,
-                "upper_q": 0.60,
-                "cls_conf_default": 0.50,
-            },
         },
     },
     "GBPUSD=X": {
-        "default_profile": "Консервативный",
+        "default_profile": "Default",
         "profiles": {
-            "Консервативный": {
-                "horizon": 5,
-                "lower_q": 0.30,
-                "upper_q": 0.70,
-                "cls_conf_default": 0.60,
-            },
-            "Агрессивный": {
-                "horizon": 3,
-                "lower_q": 0.35,
-                "upper_q": 0.65,
+            "Default": {
+                "horizon": 7,
+                "lower_q": 0.33,
+                "upper_q": 0.66,
                 "cls_conf_default": 0.55,
             },
         },
     },
     "USDJPY=X": {
-        "default_profile": "Консервативный",
+        "default_profile": "Default",
         "profiles": {
-            "Консервативный": {
+            "Default": {
                 "horizon": 7,
                 "lower_q": 0.33,
                 "upper_q": 0.66,
-                "cls_conf_default": 0.55,
-            },
-            "Агрессивный": {
-                "horizon": 5,
-                "lower_q": 0.38,
-                "upper_q": 0.62,
                 "cls_conf_default": 0.55,
             },
         },
