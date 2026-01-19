@@ -156,11 +156,11 @@ def get_atr_volatility_info(df: pd.DataFrame):
     q_low = float(atr_series.quantile(0.33))
     q_high = float(atr_series.quantile(0.66))
     if current <= q_low:
-        level = "низкая"
+        level = "Low"
     elif current >= q_high:
-        level = "высокая"
+        level = "High"
     else:
-        level = "средняя"
+        level = "Medium"
     return {"current": current, "q_low": q_low, "q_high": q_high, "level": level}
 
 
@@ -744,13 +744,13 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
     if not raw_news:
         items = [
             {
-                "title": "Новости недоступны для данного тикера сейчас",
+                "title": "News unavailable for this ticker right now",
                 "publisher": "system",
                 "link": "",
                 "time": now,
                 "score": 0,
-                "importance": "нет данных",
-                "effect": f"нейтрально для {instrument_name}",
+                "importance": "no data",
+                "effect": f"neutral for {instrument_name}",
             }
         ]
         return items, 0.0
@@ -787,23 +787,23 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
             score -= 1
         t_time = src.get("time") or now
         age_hours = (now - t_time).total_seconds() / 3600.0
-        importance = "низкая"
+        importance = "Low"
         if age_hours <= 24 and any(w in text_lower for w in macro_words):
-            importance = "высокая"
+            importance = "High"
         elif age_hours <= 72:
-            importance = "средняя"
+            importance = "Medium"
         usd_in_text = "usd" in text_lower or "dollar" in text_lower
         eur_in_text = "eur" in text_lower or "euro" in text_lower
         if score > 0 and eur_in_text:
-            effect = f"поддерживает рост {instrument_name}"
+            effect = f"supports growth of {instrument_name}"
         elif score > 0 and usd_in_text:
-            effect = f"давит на {instrument_name}"
+            effect = f"pressures {instrument_name}"
         elif score < 0 and eur_in_text:
-            effect = f"давит на {instrument_name}"
+            effect = f"pressures {instrument_name}"
         elif score < 0 and usd_in_text:
-            effect = f"поддерживает рост {instrument_name}"
+            effect = f"supports growth of {instrument_name}"
         else:
-            effect = f"нейтрально для {instrument_name}"
+            effect = f"neutral for {instrument_name}"
         total_score += score
         total_count += 1
         if src.get("publisher") in ("Federal Reserve", "ECB"):
@@ -887,9 +887,9 @@ def score_future_events(events) -> float:
     for e in events:
         impact_raw = str(e.get("impact", "") or "")
         impact = impact_raw.lower()
-        if "high" in impact or "высок" in impact:
+        if "high" in impact or "high" in impact:
             w = 2.0
-        elif "medium" in impact or "средн" in impact:
+        elif "medium" in impact or "medium" in impact:
             w = 1.0
         else:
             w = 0.5
@@ -909,15 +909,15 @@ def detect_patterns(prices: pd.Series):
     last = data[-60:]
     z = (last - last.mean()) / (last.std() + 1e-9)
     if z[-1] > 0.5 and z[-2] > 0.5 and z[-3] < 0.0:
-        patterns.append("Возможный разворот вверх (локальный минимум)")
+        patterns.append("Possible upward reversal (local minimum)")
     if z[-1] < -0.5 and z[-2] < -0.5 and z[-3] > 0.0:
-        patterns.append("Возможный разворот вниз (локальный максимум)")
+        patterns.append("Possible downward reversal (local maximum)")
     diffs = np.diff(last)
     up_ratio = (diffs > 0).mean()
     if up_ratio > 0.7:
-        patterns.append("Устойчивый восходящий тренд")
+        patterns.append("Steady upward trend")
     if up_ratio < 0.3:
-        patterns.append("Устойчивый нисходящий тренд")
+        patterns.append("Steady downward trend")
     recent = last[-40:]
     base_trend = recent[-1] - recent[0]
     recent_std = np.std(recent)
@@ -925,17 +925,17 @@ def detect_patterns(prices: pd.Series):
     tail = recent[20:]
     if abs(base_trend) > 0.03 * mid[0] and np.std(tail) < recent_std * 0.7:
         if base_trend > 0:
-            patterns.append("Возможная фигура флаг после роста")
+            patterns.append("Possible flag pattern after growth")
         else:
-            patterns.append("Возможная фигура флаг после падения")
+            patterns.append("Possible flag pattern after drop")
     if abs(base_trend) > 0.03 * mid[0]:
         tail_high = tail.max()
         tail_low = tail.min()
         if (tail_high - tail_low) < 0.01 * last.mean():
             if base_trend > 0:
-                patterns.append("Возможная фигура вымпел после роста")
+                patterns.append("Possible pennant pattern after growth")
             else:
-                patterns.append("Возможная фигура вымпел после падения")
+                patterns.append("Possible pennant pattern after drop")
     local_max = []
     local_min = []
     for i in range(1, len(last) - 1):
@@ -952,7 +952,7 @@ def detect_patterns(prices: pd.Series):
         shoulders = [h for h in (h1, h3) if h < head]
         if len(shoulders) == 2:
             if abs(shoulders[0] - shoulders[1]) / head < 0.02 and head - max(shoulders) > 0.01 * head:
-                patterns.append("Возможная фигура голова и плечи")
+                patterns.append("Possible Head and Shoulders pattern")
     if len(local_max) >= 2:
         a, b = local_max[-2], local_max[-1]
         h1, h2 = a[1], b[1]
@@ -961,7 +961,7 @@ def detect_patterns(prices: pd.Series):
             right = max(a[0], b[0])
             valley = last[left:right].min()
             if valley < min(h1, h2) * 0.995:
-                patterns.append("Возможная фигура двойная вершина")
+                patterns.append("Possible Double Top pattern")
     if len(local_min) >= 2:
         a, b = local_min[-2], local_min[-1]
         l1, l2 = a[1], b[1]
@@ -970,9 +970,9 @@ def detect_patterns(prices: pd.Series):
             right = max(a[0], b[0])
             peak = last[left:right].max()
             if peak > max(l1, l2) * 1.005:
-                patterns.append("Возможная фигура двойное дно")
+                patterns.append("Possible Double Bottom pattern")
     if not patterns:
-        patterns.append("Явно выраженных фигур не обнаружено")
+        patterns.append("No distinct patterns detected")
     return patterns
 
 
@@ -1008,7 +1008,7 @@ def build_price_chart(df: pd.DataFrame, instrument_name: str, patterns=None) -> 
                 x=[last_date],
                 y=[last_price],
                 mode="markers",
-                name="Сегодня",
+                name="Today",
                 marker=dict(color="black", size=9, symbol="diamond"),
             )
         )
@@ -1030,9 +1030,9 @@ def build_price_chart(df: pd.DataFrame, instrument_name: str, patterns=None) -> 
                 font=dict(size=10),
             )
     fig.update_layout(
-        title=f"{instrument_name}: цена и EMA",
-        xaxis_title="Дата",
-        yaxis_title="Цена",
+        title=f"{instrument_name}: price and EMA",
+        xaxis_title="Date",
+        yaxis_title="Price",
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h"),
@@ -1062,7 +1062,7 @@ def build_atr_chart(df: pd.DataFrame, instrument_name: str) -> go.Figure:
                     x=[last_date],
                     y=[last_value],
                     mode="markers",
-                    name="Текущее значение ATR(14)",
+                    name="Current ATR(14) value",
                     marker=dict(color="black", size=9, symbol="diamond"),
                 )
             )
@@ -1073,8 +1073,8 @@ def build_atr_chart(df: pd.DataFrame, instrument_name: str) -> go.Figure:
                 opacity=0.6,
             )
     fig.update_layout(
-        title=f"{instrument_name}: ATR(14) и волатильность",
-        xaxis_title="Дата",
+        title=f"{instrument_name}: ATR(14) and Volatility",
+        xaxis_title="Date",
         yaxis_title="ATR(14)",
         hovermode="x unified",
         template="plotly_white",
@@ -1109,7 +1109,7 @@ def build_prediction_chart(
             x=dates,
             y=true_prices,
             mode="lines",
-            name="Факт",
+            name="Actual",
             line=dict(color="blue", width=2),
         )
     )
@@ -1118,7 +1118,7 @@ def build_prediction_chart(
             x=dates,
             y=pred_prices,
             mode="lines",
-            name="Прогноз модели",
+            name="Model Forecast",
             line=dict(color="green", width=2, dash="dot"),
         )
     )
@@ -1130,7 +1130,7 @@ def build_prediction_chart(
                 x=[last_date],
                 y=[last_true],
                 mode="markers",
-                name="Последняя точка",
+                name="Last Point",
                 marker=dict(color="black", size=9, symbol="x"),
             )
         )
@@ -1196,14 +1196,14 @@ def build_prediction_chart(
                 x=[last_date_price, forecast_date],
                 y=[last_price, forecast_price],
                 mode="lines+markers",
-                name="Прогноз на 7 шагов вперед",
+                name="Forecast 7 steps ahead",
                 line=dict(color="purple", width=2, dash="dash"),
             )
         )
     fig.update_layout(
-        title="Прогноз цены через 7 дней",
-        xaxis_title="Дата",
-        yaxis_title="Цена",
+        title="Price forecast in 7 days",
+        xaxis_title="Date",
+        yaxis_title="Price",
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h"),
@@ -1223,7 +1223,7 @@ def build_lstm_chart(df: pd.DataFrame, model_data) -> go.Figure:
             x=idx,
             y=y_true,
             mode="lines",
-            name="Факт",
+            name="Actual",
             line=dict(color="blue", width=2),
         )
     )
@@ -1232,7 +1232,7 @@ def build_lstm_chart(df: pd.DataFrame, model_data) -> go.Figure:
             x=idx,
             y=y_pred,
             mode="lines",
-            name="Прогноз LSTM",
+            name="LSTM Forecast",
             line=dict(color="green", width=2, dash="dot"),
         )
     )
@@ -1242,14 +1242,14 @@ def build_lstm_chart(df: pd.DataFrame, model_data) -> go.Figure:
                 x=[idx[-1]],
                 y=[float(y_pred[-1])],
                 mode="markers",
-                name="Последний прогноз LSTM",
+                name="Last LSTM Forecast",
                 marker=dict(color="green", size=9, symbol="x"),
             )
         )
     fig.update_layout(
-        title="Отдельный прогноз LSTM (цена через 7 дней)",
-        xaxis_title="Дата",
-        yaxis_title="Цена",
+        title="Separate LSTM Forecast (price in 7 days)",
+        xaxis_title="Date",
+        yaxis_title="Price",
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h"),
@@ -1336,9 +1336,9 @@ def build_classification_chart(df: pd.DataFrame, model_data, classifier_override
         add_signals(svc_pred, dates, prices_base, "SVC", 1.0)
 
     fig.update_layout(
-        title="Сигналы классификации (BUY/SELL/HOLD)",
-        xaxis_title="Дата",
-        yaxis_title="Цена",
+        title="Classification Signals (BUY/SELL/HOLD)",
+        xaxis_title="Date",
+        yaxis_title="Price",
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h"),
@@ -1439,9 +1439,9 @@ def build_classification_comparison_chart(
         add_signals(svc_pred, dates, prices_base, "SVC", 0.7)
 
     fig.update_layout(
-        title="Сравнение сигналов LGBM / LSTM / Hybrid (BUY/SELL/HOLD)",
-        xaxis_title="Дата",
-        yaxis_title="Цена",
+        title="Comparison of LGBM / LSTM / Hybrid Signals (BUY/SELL/HOLD)",
+        xaxis_title="Date",
+        yaxis_title="Price",
         hovermode="x unified",
         template="plotly_white",
         legend=dict(orientation="h"),
@@ -1549,9 +1549,10 @@ def combine_signals(
     expected_return = (last_reg_price - last_price) / last_price
     pattern_bias = 0
     for p in patterns:
-        if "восходящий" in p or "разворот вверх" in p:
+        p_lower = p.lower()
+        if "upward" in p_lower or "growth" in p_lower or "double bottom" in p_lower:
             pattern_bias += 1
-        if "нисходящий" in p or "разворот вниз" in p:
+        if "downward" in p_lower or "drop" in p_lower or "double top" in p_lower or "head and shoulders" in p_lower:
             pattern_bias -= 1
 
     class_component = last_class
@@ -1582,30 +1583,30 @@ def combine_signals(
     }
     cls_label = classifier_label_map.get(best_cls, str(best_cls).upper())
     if last_class > 0:
-        reasons.append(f"классификация ({cls_label}) склоняется к BUY")
+        reasons.append(f"classification ({cls_label}) leans towards BUY")
     elif last_class < 0:
-        reasons.append(f"классификация ({cls_label}) склоняется к SELL")
+        reasons.append(f"classification ({cls_label}) leans towards SELL")
     if prob_max is not None:
-        reasons.append(f"уверенность классификации: {prob_max*100:.1f}%")
+        reasons.append(f"classification confidence: {prob_max*100:.1f}%")
     reg_name = "LSTM" if price_model_lower == "lstm" else "Hybrid"
     if expected_return > 0:
-        reasons.append(f"регрессия ({reg_name}) ожидает рост цены")
+        reasons.append(f"regression ({reg_name}) expects price growth")
     elif expected_return < 0:
-        reasons.append(f"регрессия ({reg_name}) ожидает снижение цены")
+        reasons.append(f"regression ({reg_name}) expects price decline")
     if news_score > 0.1:
-        reasons.append("официальные новости в среднем поддерживают рост")
+        reasons.append("official news on average supports growth")
     elif news_score < -0.1:
-        reasons.append("официальные новости в среднем поддерживают падение")
+        reasons.append("official news on average supports decline")
     if future_events_score > 0.1:
-        reasons.append("будущий календарь в целом поддерживает рост")
+        reasons.append("future calendar generally supports growth")
     elif future_events_score < -0.1:
-        reasons.append("будущий календарь в целом поддерживает падение")
+        reasons.append("future calendar generally supports decline")
     if pattern_bias > 0:
-        reasons.append("паттерны указывают на восходящий сценарий")
+        reasons.append("patterns indicate an upward scenario")
     elif pattern_bias < 0:
-        reasons.append("паттерны указывают на нисходящий сценарий")
+        reasons.append("patterns indicate a downward scenario")
     if not reasons:
-        reasons.append("сигналы противоречивы, используется более нейтральный подход")
+        reasons.append("signals are contradictory, a more neutral approach is used")
 
     reason_text = "; ".join(reasons)
     details = {
@@ -1630,12 +1631,12 @@ def enrich_signals_with_atr(signals: dict, atr_info: dict | None):
     current = atr_info.get("current")
     if current is None or level is None:
         return signals
-    if level == "высокая":
-        text = f"волатильность сейчас высокая по ATR(14) ({current:.5f})"
-    elif level == "низкая":
-        text = f"волатильность сейчас низкая по ATR(14) ({current:.5f})"
+    if level == "High":
+        text = f"volatility is currently high by ATR(14) ({current:.5f})"
+    elif level == "Low":
+        text = f"volatility is currently low by ATR(14) ({current:.5f})"
     else:
-        text = f"волатильность сейчас средняя по ATR(14) ({current:.5f})"
+        text = f"volatility is currently medium by ATR(14) ({current:.5f})"
     reason = signals.get("reason") or ""
     if reason:
         reason = reason + "; " + text
@@ -1681,7 +1682,7 @@ def get_signals_for_ticker(
     cls_conf_default = profile_cfg.get("cls_conf_default", 0.55)
     df_raw = load_price_data(ticker, years=years, interval=interval)
     if df_raw is None or df_raw.empty:
-        raise ValueError("Не удалось загрузить данные по тикеру")
+        raise ValueError("Failed to load data for ticker")
     df_full = add_features(df_raw)
     atr_info = get_atr_volatility_info(df_full)
 
@@ -1746,6 +1747,7 @@ def get_signals_for_ticker(
         "upper_q": upper_q,
         "news_score": float(news_score),
         "future_events_score": float(future_events_score),
+        "news_items": news_items,
         "future_events": future_events,
         "patterns": patterns,
         "signal": {
@@ -1768,15 +1770,15 @@ def get_signals_for_ticker(
 
 
 def build_dashboard_for_ticker(ticker: str, instrument_name: str):
-    st.title(f"AI-анализ {instrument_name}: цена, новости, паттерны и рекомендации")
-    st.markdown("Данные, модели, новости Twitter/официальных источников и паттерны объединены в панель.")
+    st.title(f"AI Analysis {instrument_name}: Price, News, Patterns, and Recommendations")
+    st.markdown("Data, models, Twitter/official news, and patterns combined in a dashboard.")
     col_params, col_info = st.columns([2, 1])
     with col_params:
-        years = st.slider("Глубина истории (лет)", 1, 10, 5)
-        interval = st.selectbox("Таймфрейм", ["1d", "1h", "4h"])
+        years = st.slider("History Depth (years)", 1, 10, 5)
+        interval = st.selectbox("Timeframe", ["1d", "1h", "4h"])
     with col_info:
-        st.write(f"Инструмент: {instrument_name}")
-        st.write(f"Тикер: {ticker}")
+        st.write(f"Instrument: {instrument_name}")
+        st.write(f"Ticker: {ticker}")
     settings_all = INSTRUMENT_SETTINGS.get(ticker, {})
     profiles = settings_all.get("profiles")
     if profiles:
@@ -1787,7 +1789,7 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
         except ValueError:
             default_index = 0
         selected_profile = st.sidebar.selectbox(
-            "Профиль таргета и классификации",
+            "Target & Classification Profile",
             profile_names,
             index=default_index,
             key=f"profile_{ticker}",
@@ -1800,12 +1802,12 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
     lower_q = profile_cfg.get("lower_q", 0.33)
     upper_q = profile_cfg.get("upper_q", 0.66)
     cls_conf_default = profile_cfg.get("cls_conf_default", 0.55)
-    with st.spinner("Загружаю и обрабатываю данные..."):
+    with st.spinner("Loading and processing data..."):
         df_raw = load_price_data(ticker, years=years, interval=interval)
         if df_raw is None or df_raw.empty:
             st.error(
-                "Не удалось загрузить данные по тикеру. "
-                "Попробуйте другой таймфрейм или проверьте интернет/Yahoo Finance."
+                "Failed to load data for ticker. "
+                "Try another timeframe or check internet/Yahoo Finance."
             )
             st.stop()
         df_full = add_features(df_raw)
@@ -1813,42 +1815,42 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
         df_model = add_targets(df_full.copy(), horizon=horizon, lower_q=lower_q, upper_q=upper_q)
         model_data = train_models(df_model)
     st.caption(
-        f"Данные загружены за период: {df_full.index.min().date()} — {df_full.index.max().date()}"
+        f"Data loaded for period: {df_full.index.min().date()} — {df_full.index.max().date()}"
     )
     metrics = model_data.get("metrics")
-    st.sidebar.subheader("Дополнительные графики")
-    show_lstm_chart = st.sidebar.checkbox("Показать отдельный график LSTM", value=False)
+    st.sidebar.subheader("Additional Charts")
+    show_lstm_chart = st.sidebar.checkbox("Show separate LSTM chart", value=False)
     price_model = "lstm"
     model_weights = None
     classifier_override = None
     cls_conf_threshold = cls_conf_default if "cls_conf_default" in locals() else 0.55
-    cls_mode = "Авто (лучшая по accuracy)"
+    cls_mode = "Auto (Best by Accuracy)"
     if metrics:
-        st.sidebar.subheader("Вес гибридной модели")
+        st.sidebar.subheader("Hybrid Model Weights")
         use_manual_weights = st.sidebar.checkbox(
-            "Ручная настройка весов LGBM/LSTM", value=False
+            "Manual LGBM/LSTM Weights", value=False
         )
         base_w_lgbm = float(metrics.get("weights", {}).get("lgbm", 0.5))
         if use_manual_weights:
             w_lgbm_manual = st.sidebar.slider(
-                "Вес LGBM в гибриде", 0.0, 1.0, base_w_lgbm, step=0.05
+                "LGBM Weight in Hybrid", 0.0, 1.0, base_w_lgbm, step=0.05
             )
             model_weights = {"lgbm": w_lgbm_manual, "lstm": 1.0 - w_lgbm_manual}
         else:
             model_weights = metrics.get("weights")
         if "hybrid" in metrics:
             choice = st.sidebar.selectbox(
-                "Модель для прогноза цены (7 дней)",
+                "Price Prediction Model (7 days)",
                 ["LSTM", "Hybrid (LGBM+LSTM)"],
             )
             price_model = "hybrid" if "Hybrid" in choice else "lstm"
         st.sidebar.caption(
-            f"horizon: {horizon} шагов, квантили таргета: [{lower_q:.2f}, {upper_q:.2f}]"
+            f"horizon: {horizon} steps, target quantiles: [{lower_q:.2f}, {upper_q:.2f}]"
         )
-        st.sidebar.subheader("Модель классификации")
+        st.sidebar.subheader("Classification Model")
         cls_mode = st.sidebar.radio(
-            "Режим",
-            ["Авто (SVC как основная)", "Ручной выбор"],
+            "Mode",
+            ["Auto (SVC as main)", "Manual Selection"],
             index=0,
         )
         best_by_acc = model_data.get("best_by_accuracy") or {}
@@ -1867,19 +1869,19 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
         best_acc = best_by_acc.get("acc")
         if best_label is not None and best_acc is not None:
             st.sidebar.caption(
-                f"Лучшая по accuracy: {best_label} (Accuracy {best_acc*100:.2f}%)"
+                f"Best by Accuracy: {best_label} (Accuracy {best_acc*100:.2f}%)"
             )
-        st.sidebar.subheader("Параметры доверия классификации")
+        st.sidebar.subheader("Classification Confidence Params")
         cls_conf_threshold = st.sidebar.slider(
-            "Порог уверенности (классификатор)",
+            "Confidence Threshold (Classifier)",
             0.40,
             0.90,
             cls_conf_threshold,
             step=0.01,
         )
-        if cls_mode == "Ручной выбор":
+        if cls_mode == "Manual Selection":
             cls_label = st.sidebar.selectbox(
-                "Модель для BUY/SELL/HOLD",
+                "Model for BUY/SELL/HOLD",
                 ["SVC", "LSTM", "Hybrid"],
             )
             mapping = {
@@ -1896,23 +1898,23 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
     atr_fig = build_atr_chart(df_full, instrument_name)
     pred_fig = build_prediction_chart(df_model, model_data, price_model, model_weights)
     class_fig = build_classification_chart(df_model, model_data, classifier_override)
-    st.subheader("Графики цены и прогнозов")
+    st.subheader("Price and Forecast Charts")
     st.plotly_chart(price_fig, use_container_width=True)
     st.plotly_chart(pred_fig, use_container_width=True)
-    st.subheader("ATR и волатильность")
+    st.subheader("ATR and Volatility")
     st.plotly_chart(atr_fig, use_container_width=True)
     if atr_info:
         level = atr_info.get("level")
         current = atr_info.get("current")
-        if level == "высокая":
-            vol_text = "Волатильность сейчас высокая"
-        elif level == "низкая":
-            vol_text = "Волатильность сейчас низкая"
+        if level == "High":
+            vol_text = "Volatility is currently High"
+        elif level == "Low":
+            vol_text = "Volatility is currently Low"
         else:
-            vol_text = "Волатильность сейчас средняя"
+            vol_text = "Volatility is currently Medium"
         st.write(f"{vol_text} (ATR(14) ≈ {current:.5f})")
     if metrics:
-        st.markdown("**Качество моделей (тестовый отрезок, регрессия/классификация):**")
+        st.markdown("**Model Quality (Test Split, Regression/Classification):**")
         col_lgbm, col_lstm, col_hybrid, col_svc = st.columns(4)
         if "lgbm" in metrics:
             m = metrics["lgbm"]
@@ -1941,8 +1943,8 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
                 st.write(f"MAE: {m['mae']:.5f}")
                 st.write(f"MSE: {m['mse']:.6f}")
                 if w:
-                    st.write(f"Вес LGBM: {w.get('lgbm', 0.5):.2f}")
-                    st.write(f"Вес LSTM: {w.get('lstm', 0.5):.2f}")
+                    st.write(f"LGBM Weight: {w.get('lgbm', 0.5):.2f}")
+                    st.write(f"LSTM Weight: {w.get('lstm', 0.5):.2f}")
                 if "acc" in m:
                     st.write(f"Accuracy (class): {m['acc']*100:.2f}%")
         if "svc" in metrics:
@@ -1960,11 +1962,11 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             cls_conf_threshold,
         )
         st.plotly_chart(comparison_fig, use_container_width=True, key="classification_comparison")
-    st.subheader("Лента новостей (Twitter и официальные источники)")
+    st.subheader("News Feed (Twitter & Official Sources)")
     if news_items:
         source_options = ["Twitter", "Federal Reserve", "ECB"]
         selected_sources = st.multiselect(
-            "Источники",
+            "Sources",
             source_options,
             default=source_options,
         )
@@ -1977,19 +1979,19 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
         news_df = pd.DataFrame(
             [
                 {
-                    "Время": n.get("time"),
-                    "Источник": n.get("publisher"),
-                    "Заголовок": n.get("title"),
-                    "Сентимент": n.get("score"),
-                    "Важность": n.get("importance"),
-                    "Эффект": n.get("effect"),
+                    "Time": n.get("time"),
+                    "Source": n.get("publisher"),
+                    "Title": n.get("title"),
+                    "Sentiment": n.get("score"),
+                    "Importance": n.get("importance"),
+                    "Effect": n.get("effect"),
                 }
                 for n in filtered_news
             ]
         )
         st.dataframe(news_df, use_container_width=True)
     else:
-        st.write("Новости из Twitter/официальных источников недоступны.")
+        st.write("News from Twitter/Official sources unavailable.")
     if show_lstm_chart and "lstm_reg_pred_test" in model_data and "lstm_y_reg_test" in model_data:
         lstm_fig = build_lstm_chart(df_model, model_data)
         st.plotly_chart(lstm_fig, use_container_width=True)
@@ -2006,35 +2008,35 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
     )
     signals = enrich_signals_with_atr(signals, atr_info)
     if future_events:
-        st.subheader("Будущие события (экономический календарь)")
+        st.subheader("Future Events (Economic Calendar)")
         events_df = pd.DataFrame(
             [
                 {
-                    "Время": e["time"],
-                    "Страна": e["country"],
-                    "Событие": e["event"],
-                    "Важность": e["impact"],
-                    "Ожидание": e["estimate"],
-                    "Предыдущее значение": e["previous"],
-                    "Фактическое значение": e["actual"],
+                    "Time": e["time"],
+                    "Country": e["country"],
+                    "Event": e["event"],
+                    "Importance": e["impact"],
+                    "Estimate": e["estimate"],
+                    "Previous": e["previous"],
+                    "Actual": e["actual"],
                 }
                 for e in future_events
             ]
         )
         st.dataframe(events_df, use_container_width=True)
-    st.subheader("Обнаруженные фигуры и паттерны")
+    st.subheader("Detected Patterns")
     for p in patterns:
         st.write("-", p)
-    st.subheader("Итоговая рекомендация")
+    st.subheader("Final Recommendation")
     col_left, col_right = st.columns([1, 2])
     with col_left:
-        st.metric("Текущая цена", f"{signals['last_price']:.5f}")
-        st.metric("Цель на 7 дней", f"{signals['target_price']:.5f}")
-        st.metric("Ожидаемая доходность", f"{signals['expected_return']*100:.2f}%")
+        st.metric("Current Price", f"{signals['last_price']:.5f}")
+        st.metric("Target (7d)", f"{signals['target_price']:.5f}")
+        st.metric("Exp. Return", f"{signals['expected_return']*100:.2f}%")
     with col_right:
-        st.write(f"Сигнал классификации: {signals['class_signal']} (-1 SELL, 0 HOLD, 1 BUY)")
-        st.write(f"Вклад паттернов: {signals['pattern_bias']:+.2f}")
-        st.write(f"Интегральный скоринг: {signals['score']:+.2f}")
+        st.write(f"Classification Signal: {signals['class_signal']} (-1 SELL, 0 HOLD, 1 BUY)")
+        st.write(f"Pattern Bias: {signals['pattern_bias']:+.2f}")
+        st.write(f"Integral Score: {signals['score']:+.2f}")
         cls_used_internal = signals.get("cls_model_used")
         cls_used_label_map = {
             "svc": "SVC",
@@ -2046,19 +2048,19 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             cls_used_internal, str(cls_used_internal).upper()
         )
         mode_text = (
-            "Авто (лучшая по accuracy)"
-            if cls_mode.startswith("Авто") and classifier_override is None
-            else "Ручной выбор"
+            "Auto (Best by Accuracy)"
+            if cls_mode.startswith("Auto") and classifier_override is None
+            else "Manual Selection"
         )
-        st.write(f"Модель классификации для сигнала: {cls_used_label}")
-        st.write(f"Режим выбора модели: {mode_text}")
+        st.write(f"Classification Model for Signal: {cls_used_label}")
+        st.write(f"Model Selection Mode: {mode_text}")
         if selected_profile is not None:
-            st.write(f"Профиль таргета и классификации: {selected_profile}")
+            st.write(f"Target & Class Profile: {selected_profile}")
         else:
-            st.write("Профиль таргета и классификации: не задан")
-        st.markdown(f"### Рекомендация: **{signals['action']}**")
-        st.write(f"Пояснение: {signals['reason']}")
-    st.subheader("Информационная карточка сигнала")
+            st.write("Target & Class Profile: Not Set")
+        st.markdown(f"### Recommendation: **{signals['action']}**")
+        st.write(f"Reasoning: {signals['reason']}")
+    st.subheader("Signal Information Card")
     info_payload = {
         "ticker": ticker,
         "instrument_name": instrument_name,
@@ -2093,23 +2095,23 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             pd.DataFrame(
                 [
                     {
-                        "Рекомендация": signals["action"],
-                        "Сигнал (класс)": signals["class_signal"],
-                        "Интегральный скоринг": signals["score"],
-                        "Ожидаемая доходность": signals["expected_return"],
-                        "Текущая цена": signals["last_price"],
-                        "Целевая цена": signals["target_price"],
+                        "Recommendation": signals["action"],
+                        "Signal (Class)": signals["class_signal"],
+                        "Integral Score": signals["score"],
+                        "Exp. Return": signals["expected_return"],
+                        "Current Price": signals["last_price"],
+                        "Target Price": signals["target_price"],
                         "ATR(14)": signals.get("atr_14"),
-                        "Уровень волатильности": signals.get("atr_level"),
-                        "Профиль": selected_profile,
-                        "Модель классификации": cls_used_label,
+                        "Volatility Level": signals.get("atr_level"),
+                        "Profile": selected_profile,
+                        "Classification Model": cls_used_label,
                     }
                 ]
             )
         )
 
 
-api = FastAPI(title="FX AI Аналитика API")
+api = FastAPI(title="FX AI Analytics API")
 
 
 @api.get("/predict")
@@ -2206,10 +2208,10 @@ def read_root():
 
 
 def main():
-    st.set_page_config(page_title="FX AI Аналитика", layout="wide")
-    st.sidebar.title("FX AI Аналитика")
+    st.set_page_config(page_title="FX AI Analytics", layout="wide")
+    st.sidebar.title("FX AI Analytics")
     page = st.sidebar.radio(
-        "Страница",
+        "Page",
         ["Major FX", "Crypto"],
         index=0,
     )
@@ -2220,12 +2222,12 @@ def main():
             "USDJPY": {"ticker": "USDJPY=X", "name": "USD/JPY"},
         }
     else:
-        st.subheader("Криптовалюты")
-        st.write("Скоро! Аналитика по Bitcoin находится в доработке.")
+        st.subheader("Cryptocurrencies")
+        st.write("Coming Soon! Bitcoin analytics is under development.")
         return
-    st.sidebar.subheader("Инструмент")
+    st.sidebar.subheader("Instrument")
     selected_key = st.sidebar.selectbox(
-        "Выберите инструмент",
+        "Select Instrument",
         list(instruments.keys()),
         format_func=lambda k: instruments[k]["name"],
         key=f"instrument_{page}",

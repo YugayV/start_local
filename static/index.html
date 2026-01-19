@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>FX AI Analytics</title>
+    <title>Market Context</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -309,7 +309,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>FX AI Analytics</h1>
+            <h1>Market Context</h1>
             <div class="subtitle">Mobile-First Forecasting Dashboard</div>
         </header>
         
@@ -399,15 +399,12 @@
                     </div>
                 </div>
 
-                <!-- Collapsible Raw Data for Mobile -->
-                <div class="card" id="raw-data-card">
-                    <h3 onclick="toggleCard(this.parentNode)" class="collapsible-header">
-                        Raw Signal Data
-                        <button class="collapsible-toggle">▼</button>
-                    </h3>
-                    <div class="card-content" style="display: none;"> <!-- Hidden by default on load for cleanliness -->
-                        <div id="signalCard" style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; color: #94a3b8; padding-top: 10px;">
-                            Select an instrument and click Analyze.
+                <!-- News Integration -->
+                <div class="card has-content-expanded" id="news-card">
+                    <h3>News & Sentiment</h3>
+                    <div class="card-content">
+                        <div id="newsList" style="display: flex; flex-direction: column; gap: 12px;">
+                            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">Select an instrument to load news</div>
                         </div>
                     </div>
                 </div>
@@ -457,9 +454,38 @@
                 const predictData = await predictRes.json();
                 
                 // Raw Data
-                document.getElementById('signalCard').textContent = JSON.stringify(predictData.signal, null, 2);
-                
-                // Banner
+                // document.getElementById('signalCard').textContent = JSON.stringify(predictData.signal, null, 2); // REMOVED
+
+                // News Items
+                const newsList = document.getElementById('newsList');
+                if (predictData.news_items && predictData.news_items.length > 0) {
+                    newsList.innerHTML = predictData.news_items.map(item => {
+                        let colorClass = '#94a3b8'; // Default grey
+                        if (item.importance === 'High') colorClass = '#ef4444'; // Red
+                        else if (item.importance === 'Medium') colorClass = '#f59e0b'; // Orange
+                        else if (item.importance === 'Low') colorClass = '#10b981'; // Green
+                        
+                        // Format date
+                        let dateStr = '';
+                        if (item.time) {
+                            const date = new Date(item.time);
+                            dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        }
+
+                        return `
+                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 3px solid ${colorClass};">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 0.8rem; color: ${colorClass}; font-weight: 600;">${(item.importance || 'INFO').toUpperCase()}</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary);">${dateStr}</span>
+                            </div>
+                            <div style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500; margin-bottom: 4px;">${item.title}</div>
+                             <div style="font-size: 0.85rem; color: var(--text-secondary);">${item.publisher || 'Source'}</div>
+                        </div>
+                        `;
+                    }).join('');
+                } else {
+                    newsList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No recent news found for this pair.</div>';
+                }
                 const action = predictData.signal.action;
                 bannerEl.textContent = `${action} (Score: ${predictData.signal.score.toFixed(2)})`;
                 bannerEl.className = `recommendation-banner rec-${action}`;
@@ -631,7 +657,7 @@
             traces.push({
                 x: data.dates, y: data.close,
                 type: 'scatter', mode: 'lines',
-                line: {color: '#f1f5f9', width: 1.5}, name: 'Price'
+                line: {color: '#ffffff', width: 2.5}, name: 'Original'
             });
             
             if (forecastTrace) traces.push(forecastTrace);
