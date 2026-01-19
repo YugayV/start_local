@@ -2,436 +2,588 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FX AI Analytics</title>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; padding: 20px; background-color: #0f172a; }
-        .container { max-width: 1400px; margin: 0 auto; background: #0b1120; padding: 24px; border-radius: 16px; box-shadow: 0 20px 40px rgba(15,23,42,0.5); color: #e5e7eb; }
-        h1 { color: #e5e7eb; margin-bottom: 8px; }
-        .subtitle { color: #9ca3af; margin-bottom: 20px; font-size: 0.95rem; }
-        .controls { margin-bottom: 20px; padding: 16px 18px; background: #020617; border-radius: 12px; display: flex; gap: 12px; align-items: center; border: 1px solid #1f2937; }
-        select, button { padding: 8px 12px; border-radius: 4px; border: 1px solid #ddd; font-size: 16px; }
-        select { background: #020617; color: #e5e7eb; border-color: #374151; }
-        select:focus { outline: none; border-color: #60a5fa; box-shadow: 0 0 0 1px #60a5fa; }
-        button { background: linear-gradient(90deg,#fb7185,#f97316); color: white; border: none; cursor: pointer; font-weight: 500; padding-inline: 18px; border-radius: 999px; }
-        button:hover { background: linear-gradient(90deg,#f97316,#fb7185); }
-        #loading { display: none; color: #9ca3af; margin-left: 10px; font-size: 0.9rem; }
-        .grid { display: block; margin-top: 16px; }
-        .chart-container { height: 520px; border-radius: 12px; background: #020617; border: 1px solid #1f2937; padding: 6px; }
-        .signal-card { background: #020617; padding: 14px; border-radius: 10px; font-family: monospace; white-space: pre-wrap; overflow-x: auto; font-size: 13px; border: 1px solid #1f2937; color: #e5e7eb; }
-        .recommendation { font-size: 1.1rem; font-weight: 600; margin-bottom: 14px; padding: 12px 14px; border-radius: 999px; text-align: center; border: 1px solid transparent; }
-        .rec-BUY { background: rgba(16,185,129,0.1); color: #6ee7b7; border-color: rgba(16,185,129,0.4); }
-        .rec-SELL { background: rgba(239,68,68,0.08); color: #fecaca; border-color: rgba(239,68,68,0.4); }
-        .rec-HOLD { background: rgba(234,179,8,0.08); color: #facc15; border-color: rgba(234,179,8,0.4); }
-        .metric-box { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.9rem; color: #d1d5db; }
-        .bottom-panels { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; margin-top: 24px; }
-        .panel-title { margin: 0 0 8px 0; font-size: 1rem; color: #e5e7eb; }
-        @media (max-width: 900px) {
-            .bottom-panels { grid-template-columns: 1fr; }
-            .chart-container { height: 420px; }
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+            --warning-color: #f59e0b;
+            --border-color: #334155;
+            --input-bg: #0f172a;
+        }
+
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 16px; /* Base size for readability */
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #60a5fa, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 8px;
+        }
+
+        /* Controls Section */
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 24px;
+            align-items: end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 12px 16px; /* Larger touch target */
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            font-family: inherit;
+            font-size: 1rem;
+            background: var(--input-bg);
+            color: var(--text-primary);
+            transition: all 0.2s;
+            height: 48px; /* Standard mobile touch height */
+            appearance: none; /* Reset native styling */
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            background-image: none;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+        }
+
+        button:hover {
+            opacity: 0.95;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        @media (min-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 3fr 1fr;
+            }
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .card h3 {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Collapsible functionality for mobile */
+        .collapsible-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            padding: 0;
+            height: auto;
+            width: auto;
+            box-shadow: none;
+        }
+        
+        .card-content {
+            transition: max-height 0.3s ease-out;
+        }
+
+        /* Charts */
+        .chart-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 8px;
+            background: var(--bg-color); /* Fallback */
+        }
+
+        /* Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .metric-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Banners */
+        .recommendation-banner {
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.3rem;
+            margin-bottom: 24px;
+            border: 1px solid transparent;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .rec-BUY { background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3); }
+        .rec-SELL { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+        .rec-HOLD { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+
+        /* Mobile Specifics */
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            
+            h1 { font-size: 1.6rem; }
+            
+            .controls {
+                grid-template-columns: 1fr; /* Stack vertically */
+                padding: 16px;
+                gap: 20px;
+            }
+
+            .chart-container {
+                height: 300px; /* Slightly smaller on mobile */
+            }
+
+            button {
+                margin-top: 8px;
+                font-size: 1.1rem; /* Bigger text for action */
+            }
+
+            /* Collapsible sections logic */
+            .collapsible-header {
+                cursor: pointer;
+            }
+            
+            .collapsible-toggle {
+                display: block;
+            }
+
+            .is-collapsed .card-content {
+                display: none;
+            }
+            
+            .card h3 {
+                margin-bottom: 0;
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            
+            .card.has-content-expanded h3 {
+                 margin-bottom: 16px;
+                 border-bottom: 1px solid var(--border-color);
+                 padding-bottom: 12px;
+            }
+        }
+
+        #loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: var(--accent-color);
+            font-weight: 500;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>FX AI Analytics Dashboard</h1>
-        <div class="subtitle">AI-оценка FX с прогнозом на 7 дней, ATR и событийными уровнями.</div>
+        <header>
+            <h1>FX AI Analytics</h1>
+            <div class="subtitle">Mobile-First Forecasting Dashboard</div>
+        </header>
         
         <div class="controls">
-            <label for="ticker">Instrument:</label>
-            <select id="ticker">
-                <option value="EURUSD=X" data-name="EUR/USD">EUR/USD</option>
-                <option value="GBPUSD=X" data-name="GBP/USD">GBP/USD</option>
-                <option value="USDJPY=X" data-name="USD/JPY">USD/JPY</option>
-            </select>
+            <div class="control-group">
+                <label for="ticker">Instrument</label>
+                <select id="ticker">
+                    <option value="EURUSD=X" data-name="EUR/USD">EUR/USD</option>
+                    <option value="GBPUSD=X" data-name="GBP/USD">GBP/USD</option>
+                    <option value="USDJPY=X" data-name="USD/JPY">USD/JPY</option>
+                </select>
+            </div>
             
-            <label for="profile">Profile:</label>
-            <select id="profile">
-                <option value="">Default</option>
-                <option value="aggressive">Aggressive</option>
-                <option value="conservative">Conservative</option>
-            </select>
-
-            <button onclick="updateDashboard()">Analyze</button>
-            <span id="loading">Loading data...</span>
-        </div>
-
-        <div id="recommendation-banner" class="recommendation"></div>
-
-        <div class="grid">
-            <div id="mainChart" class="chart-container"></div>
-            <div id="atrChart" class="chart-container" style="height: 320px; margin-top: 20px;"></div>
-        </div>
-
-        <div class="bottom-panels">
-            <div>
-                <h3 class="panel-title">Signal Details</h3>
-                <div id="signalCard" class="signal-card">Select an instrument and click Analyze.</div>
+            <div class="control-group">
+                <label for="profile">Risk Profile</label>
+                <select id="profile">
+                    <option value="">Default (Auto)</option>
+                    <option value="aggressive">Aggressive</option>
+                    <option value="conservative">Conservative</option>
+                </select>
             </div>
 
-            <div>
-                <h3 class="panel-title">Metrics</h3>
-                <div id="metricsBox" class="signal-card"></div>
+            <div class="control-group">
+                <label for="horizon">Prediction Horizon</label>
+                <select id="horizon">
+                    <option value="1">1 Day</option>
+                    <option value="2">2 Days</option>
+                    <option value="3">3 Days</option>
+                    <option value="5">5 Days</option>
+                    <option value="7" selected>7 Days (Week)</option>
+                    <option value="14">14 Days (2 Weeks)</option>
+                </select>
+            </div>
+
+            <button onclick="updateDashboard()">Analyze Market</button>
+        </div>
+
+        <div id="loading"><span class="spinner"></span>Analyzing market data...</div>
+        <div id="recommendation-banner" class="recommendation-banner"></div>
+
+        <div class="dashboard-grid">
+            <!-- Main Column -->
+            <div class="main-col" style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card has-content-expanded">
+                    <h3>Price Forecast</h3>
+                    <div class="card-content">
+                        <div id="mainChart" class="chart-container"></div>
+                    </div>
+                </div>
+                
+                <div class="card has-content-expanded">
+                    <h3>Volatility (ATR)</h3>
+                    <div class="card-content">
+                        <div id="atrChart" class="chart-container" style="height: 250px;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Column -->
+            <div class="sidebar-col" style="display: flex; flex-direction: column; gap: 24px;">
+                <div class="card has-content-expanded">
+                    <h3>Key Metrics</h3>
+                    <div class="card-content">
+                        <div id="metricsBox" class="metrics-grid">
+                            <div class="metric-item"><div class="metric-label">Last Price</div><div class="metric-value">-</div></div>
+                            <div class="metric-item"><div class="metric-label">Target</div><div class="metric-value">-</div></div>
+                            <div class="metric-item"><div class="metric-label">Exp. Return</div><div class="metric-value">-</div></div>
+                            <div class="metric-item"><div class="metric-label">Risk Level</div><div class="metric-value">-</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card has-content-expanded">
+                    <h3>Help & Guide</h3>
+                    <div class="card-content">
+                        <div class="help-section" style="font-size: 0.9rem; color: var(--text-secondary);">
+                            <p><strong>Recommendation:</strong> AI suggestion based on technicals.</p>
+                            <p><strong>Horizon:</strong> Prediction period selected above.</p>
+                            <p><strong>Charts:</strong> Dotted line = Prediction. Shaded area = Range.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collapsible Raw Data for Mobile -->
+                <div class="card" id="raw-data-card">
+                    <h3 onclick="toggleCard(this.parentNode)" class="collapsible-header">
+                        Raw Signal Data
+                        <button class="collapsible-toggle">▼</button>
+                    </h3>
+                    <div class="card-content" style="display: none;"> <!-- Hidden by default on load for cleanliness -->
+                        <div id="signalCard" style="font-family: monospace; font-size: 0.75rem; overflow-x: auto; white-space: pre-wrap; color: #94a3b8; padding-top: 10px;">
+                            Select an instrument and click Analyze.
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        function toggleCard(card) {
+            // Simple toggle for mobile accordion effect
+            const content = card.querySelector('.card-content');
+            const toggle = card.querySelector('.collapsible-toggle');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.textContent = '▲';
+                card.classList.add('has-content-expanded');
+            } else {
+                content.style.display = 'none';
+                toggle.textContent = '▼';
+                card.classList.remove('has-content-expanded');
+            }
+        }
+
         async function updateDashboard() {
             const tickerSelect = document.getElementById('ticker');
             const ticker = tickerSelect.value;
             const instrumentName = tickerSelect.options[tickerSelect.selectedIndex].getAttribute('data-name');
             const profile = document.getElementById('profile').value;
+            const horizon = document.getElementById('horizon').value;
             
-            document.getElementById('loading').style.display = 'inline';
+            const loadingEl = document.getElementById('loading');
+            const bannerEl = document.getElementById('recommendation-banner');
             
+            loadingEl.style.display = 'block';
+            bannerEl.style.display = 'none';
+            
+            // Scroll to top on mobile to show loading/results
+            if (window.innerWidth < 768) {
+                window.scrollTo({ top: 100, behavior: 'smooth' });
+            }
+
             try {
-                // 1. Get Prediction Signal
-                const predictUrl = `/predict?ticker=${encodeURIComponent(ticker)}&instrument_name=${encodeURIComponent(instrumentName)}${profile ? `&profile=${profile}` : ''}`;
+                let predictUrl = `/predict?ticker=${encodeURIComponent(ticker)}&instrument_name=${encodeURIComponent(instrumentName)}`;
+                if (profile) predictUrl += `&profile=${profile}`;
+                if (horizon) predictUrl += `&horizon=${horizon}`;
+
                 const predictRes = await fetch(predictUrl);
                 const predictData = await predictRes.json();
                 
-                // Render Signal Card
-                document.getElementById('signalCard').textContent = JSON.stringify(predictData, null, 2);
+                // Raw Data
+                document.getElementById('signalCard').textContent = JSON.stringify(predictData.signal, null, 2);
                 
-                // Render Recommendation
+                // Banner
                 const action = predictData.signal.action;
-                const recBanner = document.getElementById('recommendation-banner');
-                recBanner.textContent = `Recommendation: ${action} (Score: ${predictData.signal.score.toFixed(2)})`;
-                recBanner.className = `recommendation rec-${action}`;
+                bannerEl.textContent = `${action} (Score: ${predictData.signal.score.toFixed(2)})`;
+                bannerEl.className = `recommendation-banner rec-${action}`;
+                bannerEl.style.display = 'block';
                 
-                // Render Metrics
-                document.getElementById('metricsBox').innerHTML = `
-                    <div>Last Price: ${predictData.signal.last_price}</div>
-                    <div>Target (7d): ${predictData.signal.target_price}</div>
-                    <div>Exp. Return: ${(predictData.signal.expected_return * 100).toFixed(2)}%</div>
-                    <div>ATR(14): ${predictData.signal.atr_14 || 'N/A'}</div>
-                    <div>Volatility: ${predictData.signal.atr_level || 'N/A'}</div>
+                // Metrics
+                const metricsContainer = document.getElementById('metricsBox');
+                metricsContainer.innerHTML = `
+                    <div class="metric-item">
+                        <div class="metric-label">Last Price</div>
+                        <div class="metric-value">${predictData.signal.last_price.toFixed(4)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Target (${horizon}d)</div>
+                        <div class="metric-value">${predictData.signal.target_price.toFixed(4)}</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Exp. Return</div>
+                        <div class="metric-value" style="color: ${predictData.signal.expected_return >= 0 ? '#34d399' : '#f87171'}">
+                            ${(predictData.signal.expected_return * 100).toFixed(2)}%
+                        </div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">ATR Level</div>
+                        <div class="metric-value">${predictData.signal.atr_level || 'N/A'}</div>
+                    </div>
                 `;
 
-                // 2. Get Historical Data for Charts (New Endpoint)
+                // History for Charts
                 const historyUrl = `/history?ticker=${encodeURIComponent(ticker)}&interval=1d&years=2`;
                 const historyRes = await fetch(historyUrl);
                 if (historyRes.ok) {
                     const historyData = await historyRes.json();
-                    renderCharts(historyData, predictData.signal, predictData.future_events || []);
-                } else {
-                    console.error("Failed to fetch history");
-                    const mainChartEl = document.getElementById('mainChart');
-                    if (mainChartEl) {
-                        mainChartEl.textContent = 'Не удалось загрузить исторические данные для графика.';
-                    }
+                    renderCharts(historyData, predictData.signal, parseInt(horizon));
                 }
 
             } catch (err) {
                 console.error(err);
-                alert("Error fetching data: " + err.message);
+                alert("Error: " + err.message);
             } finally {
-                document.getElementById('loading').style.display = 'none';
+                loadingEl.style.display = 'none';
             }
         }
 
-        function renderCharts(data, signal, events) {
-            if (typeof Plotly === 'undefined') {
-                const mainChartEl = document.getElementById('mainChart');
-                if (mainChartEl) {
-                    mainChartEl.textContent = 'Не удалось загрузить библиотеку графиков (Plotly).';
-                }
-                return;
-            }
+        function renderCharts(data, signal, horizonDays) {
+            if (typeof Plotly === 'undefined') return;
 
+            // Chart Configuration for Mobile
+            const isMobile = window.innerWidth < 768;
+            const commonLayout = {
+                paper_bgcolor: '#1e293b',
+                plot_bgcolor: '#1e293b',
+                font: {family: 'Inter, sans-serif', color: '#94a3b8', size: isMobile ? 10 : 12},
+                margin: {t: 20, r: 10, l: 35, b: 30},
+                xaxis: { gridcolor: '#334155', zerolinecolor: '#334155' },
+                yaxis: { gridcolor: '#334155', zerolinecolor: '#334155' },
+                hovermode: 'x unified',
+                showlegend: !isMobile, // Hide legend on mobile to save space
+                legend: {orientation: 'h', y: 1.1}
+            };
+
+            // ... (Forecast Logic same as before) ...
             let forecastTrace = null;
-            let lastDateStr = null;
-            let lastClose = null;
-            let forecastEndDate = null;
-            let actionColor = '#60a5fa';
-            let action = signal && signal.action ? String(signal.action).toUpperCase() : null;
-            if (action === 'BUY') {
-                actionColor = '#22c55e';
-            } else if (action === 'SELL') {
-                actionColor = '#ef4444';
-            } else if (action === 'HOLD') {
-                actionColor = '#facc15';
-            }
-            try {
-                const n = data.dates.length;
-                if (n > 0 && signal && typeof signal.target_price === 'number') {
-                    lastDateStr = data.dates[n - 1];
-                    lastClose = data.close[n - 1];
-                    const targetPrice = signal.target_price;
-                    const steps = 7;
-
-                    const addDaysISO = (dateStr, days) => {
-                        const d = new Date(dateStr);
-                        d.setDate(d.getDate() + days);
-                        return d.toISOString().slice(0, 10);
-                    };
-
-                    const allDates = [lastDateStr];
-                    const allPrices = [lastClose];
-                    for (let i = 1; i <= steps; i++) {
-                        const d = addDaysISO(lastDateStr, i);
-                        const p = lastClose + (targetPrice - lastClose) * (i / steps);
-                        allDates.push(d);
-                        allPrices.push(p);
-                        if (i === steps) {
-                            forecastEndDate = d;
-                        }
-                    }
-
-                    forecastTrace = {
-                        x: allDates,
-                        y: allPrices,
-                        type: 'scatter',
-                        mode: 'lines+markers',
-                        line: {color: actionColor, dash: 'dot'},
-                        marker: {size: 6},
-                        name: 'Прогноз цены (7 дней)'
-                    };
+            if (signal && typeof signal.target_price === 'number') {
+                const lastDate = data.dates[data.dates.length - 1];
+                const lastClose = data.close[data.close.length - 1];
+                const target = signal.target_price;
+                const steps = horizonDays;
+                
+                const dates = [lastDate];
+                const prices = [lastClose];
+                
+                // Simple date adder
+                const d = new Date(lastDate);
+                for(let i=1; i<=steps; i++) {
+                    const nextD = new Date(d);
+                    nextD.setDate(d.getDate() + i);
+                    dates.push(nextD.toISOString().split('T')[0]);
+                    prices.push(lastClose + (target - lastClose) * (i/steps));
                 }
-            } catch (e) {
-                console.warn('Не удалось построить прогнозную линию:', e);
+
+                let color = '#3b82f6';
+                if(signal.action === 'BUY') color = '#10b981';
+                if(signal.action === 'SELL') color = '#ef4444';
+
+                forecastTrace = {
+                    x: dates, y: prices,
+                    type: 'scatter', mode: 'lines+markers',
+                    line: {color: color, dash: 'dot', width: 2},
+                    name: 'Forecast'
+                };
             }
 
-            const traceRangeHigh = {
-                x: data.dates,
-                y: data.high,
-                type: 'scatter',
-                mode: 'lines',
-                line: {color: '#4b5563', width: 1},
-                name: 'Диапазон цены (High/Low)',
-                hoverinfo: 'skip'
-            };
-
-            const traceRangeLow = {
-                x: data.dates,
-                y: data.low,
-                type: 'scatter',
-                mode: 'lines',
-                line: {color: '#4b5563', width: 1},
-                fill: 'tonexty',
-                fillcolor: 'rgba(148, 163, 184, 0.18)',
-                name: 'Диапазон цены (High/Low)',
-                showlegend: false,
-                hoverinfo: 'skip'
-            };
-
-            const traceClose = {
-                x: data.dates,
-                y: data.close,
-                type: 'scatter',
-                mode: 'lines',
-                line: {color: '#e5e7eb', width: 1.6},
-                name: 'Close'
-            };
-
-            const traces = [traceRangeHigh, traceRangeLow, traceClose];
-
-            if (Array.isArray(data.ema_8)) {
-                traces.push({
-                    x: data.dates,
-                    y: data.ema_8,
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#22c55e', width: 1.6},
-                    name: 'EMA 8'
-                });
-            }
-
-            if (Array.isArray(data.ema_21)) {
-                traces.push({
-                    x: data.dates,
-                    y: data.ema_21,
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#38bdf8', width: 1.8},
-                    name: 'EMA 21'
-                });
-            }
-
-            if (Array.isArray(data.ema_55)) {
-                traces.push({
-                    x: data.dates,
-                    y: data.ema_55,
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#a855f7', width: 1.6},
-                    name: 'EMA 55'
-                });
-            }
-
-            const firstDate = data.dates && data.dates.length > 0 ? data.dates[0] : null;
-            const lastDateDefault = data.dates && data.dates.length > 0 ? data.dates[data.dates.length - 1] : null;
-            const lastDateForLine = forecastEndDate || lastDateStr || lastDateDefault;
-
-            if (lastClose !== null && firstDate && lastDateForLine) {
-                traces.push({
-                    x: [firstDate, lastDateForLine],
-                    y: [lastClose, lastClose],
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#888888', dash: 'dash'},
-                    name: 'Текущая цена'
-                });
-            }
-
-            if (signal && typeof signal.support_level === 'number' && firstDate && lastDateForLine) {
-                traces.push({
-                    x: [firstDate, lastDateForLine],
-                    y: [signal.support_level, signal.support_level],
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#16a34a', dash: 'dot'},
-                    name: 'Поддержка (20 дней)'
-                });
-            }
-
-            if (signal && typeof signal.resistance_level === 'number' && firstDate && lastDateForLine) {
-                traces.push({
-                    x: [firstDate, lastDateForLine],
-                    y: [signal.resistance_level, signal.resistance_level],
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#dc2626', dash: 'dot'},
-                    name: 'Сопротивление (20 дней)'
-                });
-            }
-
-            if (forecastTrace) {
-                traces.push(forecastTrace);
-            }
-
-            let shapes = [];
-            try {
-                if (Array.isArray(events) && events.length && data.dates && data.dates.length) {
-                    const lowVals = data.low.filter(v => typeof v === 'number' && !isNaN(v));
-                    const highVals = data.high.filter(v => typeof v === 'number' && !isNaN(v));
-                    if (lowVals.length && highVals.length) {
-                        const minPrice = Math.min(...lowVals);
-                        const maxPrice = Math.max(...highVals);
-                        const colorByImpact = (impact) => {
-                            const imp = (impact || '').toString().toLowerCase();
-                            if (imp.includes('high') || imp.includes('высок')) return '#d62728';
-                            if (imp.includes('med') || imp.includes('средн')) return '#ff7f0e';
-                            if (imp.includes('low') || imp.includes('низк')) return '#2ca02c';
-                            return '#9467bd';
-                        };
-                        for (const ev of events) {
-                            const t = ev.time || ev.date || ev.datetime;
-                            if (!t) continue;
-                            shapes.push({
-                                type: 'line',
-                                x0: t,
-                                x1: t,
-                                y0: minPrice,
-                                y1: maxPrice,
-                                xref: 'x',
-                                yref: 'y',
-                                line: {
-                                    color: colorByImpact(ev.impact),
-                                    width: 1,
-                                    dash: 'dot'
-                                }
-                            });
-                        }
-                    }
+            const traces = [
+                {
+                    x: data.dates, y: data.low,
+                    type: 'scatter', mode: 'lines',
+                    line: {width: 0}, showlegend: false, hoverinfo: 'skip'
+                },
+                {
+                    x: data.dates, y: data.high,
+                    type: 'scatter', mode: 'lines',
+                    fill: 'tonexty', fillcolor: 'rgba(148, 163, 184, 0.1)',
+                    line: {width: 0}, name: 'Range'
+                },
+                {
+                    x: data.dates, y: data.close,
+                    type: 'scatter', mode: 'lines',
+                    line: {color: '#f1f5f9', width: 1.5}, name: 'Price'
                 }
-            } catch (e) {
-                console.warn('Не удалось добавить вертикальные линии событий:', e);
-            }
-
-            const layout = {
-                title: `Price History: ${document.getElementById('ticker').options[document.getElementById('ticker').selectedIndex].text}`,
-                dragmode: 'zoom',
-                showlegend: true,
-                paper_bgcolor: '#020617',
-                plot_bgcolor: '#020617',
-                font: {color: '#e5e7eb'},
-                xaxis: {
-                    rangeslider: { visible: false },
-                    gridcolor: '#1f2937',
-                    zerolinecolor: '#1f2937',
-                    linecolor: '#4b5563'
-                },
-                yaxis: {
-                    gridcolor: '#1f2937',
-                    zerolinecolor: '#1f2937',
-                    linecolor: '#4b5563'
-                },
-                shapes: shapes
-            };
+            ];
             
-            Plotly.newPlot('mainChart', traces, layout);
+            if (forecastTrace) traces.push(forecastTrace);
 
+            Plotly.newPlot('mainChart', traces, commonLayout, {responsive: true, displayModeBar: false});
+
+            // ATR Chart
             if (data.atr) {
-                const atrValues = data.atr.filter(v => typeof v === 'number' && !isNaN(v));
-                let qLow = null;
-                let qHigh = null;
-                if (atrValues.length > 0) {
-                    const sorted = [...atrValues].sort((a, b) => a - b);
-                    const quantile = (arr, q) => {
-                        const pos = (arr.length - 1) * q;
-                        const base = Math.floor(pos);
-                        const rest = pos - base;
-                        if (arr[base + 1] !== undefined) {
-                            return arr[base] + rest * (arr[base + 1] - arr[base]);
-                        } else {
-                            return arr[base];
-                        }
-                    };
-                    qLow = quantile(sorted, 0.33);
-                    qHigh = quantile(sorted, 0.66);
-                }
-
-                const trace2 = {
-                    x: data.dates,
-                    y: data.atr,
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: {color: '#ffa15a'},
-                    name: 'ATR(14)'
+                const atrTrace = {
+                    x: data.dates, y: data.atr,
+                    type: 'scatter', mode: 'lines',
+                    line: {color: '#f59e0b', width: 1.5},
+                    fill: 'tozeroy', fillcolor: 'rgba(245, 158, 11, 0.1)',
+                    name: 'ATR'
                 };
-
-                const atrTraces = [trace2];
-
-                if (qLow !== null) {
-                    atrTraces.push({
-                        x: data.dates,
-                        y: new Array(data.dates.length).fill(qLow),
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: {color: '#2ca02c', dash: 'dot'},
-                        name: 'ATR нижняя граница'
-                    });
-                }
-
-                if (qHigh !== null) {
-                    atrTraces.push({
-                        x: data.dates,
-                        y: new Array(data.dates.length).fill(qHigh),
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: {color: '#d62728', dash: 'dot'},
-                        name: 'ATR верхняя граница'
-                    });
-                }
-                
-                const layout2 = {
-                    title: 'Average True Range (14)',
-                    paper_bgcolor: '#020617',
-                    plot_bgcolor: '#020617',
-                    font: {color: '#e5e7eb'},
-                    xaxis: { title: 'Date', gridcolor: '#1f2937', zerolinecolor: '#1f2937', linecolor: '#4b5563' },
-                    yaxis: { title: 'ATR', gridcolor: '#1f2937', zerolinecolor: '#1f2937', linecolor: '#4b5563' }
-                };
-                
-                Plotly.newPlot('atrChart', atrTraces, layout2);
+                Plotly.newPlot('atrChart', [atrTrace], commonLayout, {responsive: true, displayModeBar: false});
             }
         }
-        
-        // Initial load
-        // updateDashboard(); 
     </script>
 </body>
 </html>

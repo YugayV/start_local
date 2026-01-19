@@ -1664,6 +1664,7 @@ def get_signals_for_ticker(
     years: int = 5,
     interval: str = "1d",
     profile: str | None = None,
+    horizon: int | None = None,
 ):
     settings_all = INSTRUMENT_SETTINGS.get(ticker, {})
     profiles = settings_all.get("profiles")
@@ -1681,7 +1682,11 @@ def get_signals_for_ticker(
     else:
         selected_profile = profile
         profile_cfg = settings_all if isinstance(settings_all, dict) else {}
-    horizon = profile_cfg.get("horizon", 7)
+    
+    # If horizon is not explicitly provided, get it from profile
+    if horizon is None:
+        horizon = profile_cfg.get("horizon", 7)
+        
     lower_q = profile_cfg.get("lower_q", 0.33)
     upper_q = profile_cfg.get("upper_q", 0.66)
     cls_conf_default = profile_cfg.get("cls_conf_default", 0.55)
@@ -2125,6 +2130,7 @@ def predict(
     years: int = 5,
     interval: str = "1d",
     profile: str | None = None,
+    horizon: int | None = None,
 ):
     name = instrument_name or ticker
     try:
@@ -2134,6 +2140,7 @@ def predict(
             years=years,
             interval=interval,
             profile=profile,
+            horizon=horizon,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
