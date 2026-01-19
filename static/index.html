@@ -382,6 +382,21 @@
                     </div>
                 </div>
 
+                <!-- RiskCurve Integration -->
+                <div class="card has-content-expanded">
+                    <h3>Market Context</h3>
+                    <div class="card-content">
+                        <div style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">
+                            Check market regimes & volatility analysis on RiskCurve.
+                        </div>
+                        <a href="https://riskcurve.ai/" target="_blank" style="text-decoration: none; display: block;">
+                            <button style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 0;">
+                                Open RiskCurve.ai ↗
+                            </button>
+                        </a>
+                    </div>
+                </div>
+
                 <div class="card has-content-expanded">
                     <h3>Help & Guide</h3>
                     <div class="card-content">
@@ -510,14 +525,42 @@
                 plot_bgcolor: '#1e293b',
                 font: {family: 'Inter, sans-serif', color: '#94a3b8', size: isMobile ? 10 : 12},
                 margin: {t: 20, r: 10, l: 35, b: 30},
-                xaxis: { gridcolor: '#334155', zerolinecolor: '#334155' },
+                xaxis: { 
+                    gridcolor: '#334155', 
+                    zerolinecolor: '#334155',
+                    rangeselector: {
+                        buttons: [
+                            {count: 1, label: '1M', step: 'month', stepmode: 'backward'},
+                            {count: 3, label: '3M', step: 'month', stepmode: 'backward'},
+                            {count: 6, label: '6M', step: 'month', stepmode: 'backward'},
+                            {count: 1, label: '1Y', step: 'year', stepmode: 'backward'},
+                            {step: 'all', label: 'All'}
+                        ],
+                        bgcolor: '#1e293b',
+                        activecolor: '#3b82f6',
+                        font: {color: '#94a3b8'}
+                    }
+                },
                 yaxis: { gridcolor: '#334155', zerolinecolor: '#334155' },
                 hovermode: 'x unified',
                 showlegend: !isMobile, // Hide legend on mobile to save space
                 legend: {orientation: 'h', y: 1.1}
             };
 
-            // ... (Forecast Logic same as before) ...
+            if (isMobile) {
+                commonLayout.xaxis.rangeselector = {
+                    buttons: [
+                        {count: 1, label: '1M', step: 'month', stepmode: 'backward'},
+                        {count: 6, label: '6M', step: 'month', stepmode: 'backward'},
+                        {step: 'all', label: 'All'}
+                    ],
+                    bgcolor: '#1e293b',
+                    activecolor: '#3b82f6',
+                    font: {color: '#94a3b8', size: 10}
+                };
+            }
+
+            // Forecast Logic
             let forecastTrace = null;
             if (signal && typeof signal.target_price === 'number') {
                 const lastDate = data.dates[data.dates.length - 1];
@@ -528,7 +571,6 @@
                 const dates = [lastDate];
                 const prices = [lastClose];
                 
-                // Simple date adder
                 const d = new Date(lastDate);
                 for(let i=1; i<=steps; i++) {
                     const nextD = new Date(d);
@@ -549,24 +591,59 @@
                 };
             }
 
-            const traces = [
-                {
-                    x: data.dates, y: data.low,
+            const traces = [];
+
+            // 1. Bollinger Bands (Background Layer)
+            if (data.bb_upper && data.bb_lower) {
+                 traces.push({
+                    x: data.dates, y: data.bb_upper,
                     type: 'scatter', mode: 'lines',
-                    line: {width: 0}, showlegend: false, hoverinfo: 'skip'
-                },
-                {
-                    x: data.dates, y: data.high,
+                    line: {width: 0},
+                    showlegend: false, hoverinfo: 'skip'
+                });
+                traces.push({
+                    x: data.dates, y: data.bb_lower,
                     type: 'scatter', mode: 'lines',
-                    fill: 'tonexty', fillcolor: 'rgba(148, 163, 184, 0.1)',
-                    line: {width: 0}, name: 'Range'
-                },
-                {
-                    x: data.dates, y: data.close,
-                    type: 'scatter', mode: 'lines',
-                    line: {color: '#f1f5f9', width: 1.5}, name: 'Price'
-                }
-            ];
+                    fill: 'tonexty',
+                    fillcolor: 'rgba(59, 130, 246, 0.05)',
+                    line: {width: 0},
+                    name: 'Bollinger Bands'
+                });
+            }
+
+            // 2. Daily Range (Shadow)
+            traces.push({
+                x: data.dates, y: data.low,
+                type: 'scatter', mode: 'lines',
+                line: {width: 0}, showlegend: false, hoverinfo: 'skip'
+            });
+            traces.push({
+                x: data.dates, y: data.high,
+                type: 'scatter', mode: 'lines',
+                fill: 'tonexty', fillcolor: 'rgba(148, 163, 184, 0.05)',
+                line: {width: 0}, name: 'Daily Range'
+            });
+
+            // 3. EMAs
+            if (data.ema_8) traces.push({
+                x: data.dates, y: data.ema_8,
+                type: 'scatter', mode: 'lines',
+                line: {color: '#22c55e', width: 1}, // Green
+                name: 'EMA 8', opacity: 0.8
+            });
+            if (data.ema_21) traces.push({
+                x: data.dates, y: data.ema_21,
+                type: 'scatter', mode: 'lines',
+                line: {color: '#eab308', width: 1}, // Yellow
+                name: 'EMA 21', opacity: 0.8
+            });
+
+            // 4. Close Price (Main)
+            traces.push({
+                x: data.dates, y: data.close,
+                type: 'scatter', mode: 'lines',
+                line: {color: '#f1f5f9', width: 1.5}, name: 'Price'
+            });
             
             if (forecastTrace) traces.push(forecastTrace);
 
@@ -574,6 +651,10 @@
 
             // ATR Chart
             if (data.atr) {
+                // Clone layout to remove rangeselector from ATR
+                const atrLayout = JSON.parse(JSON.stringify(commonLayout));
+                atrLayout.xaxis.rangeselector = undefined;
+                
                 const atrTrace = {
                     x: data.dates, y: data.atr,
                     type: 'scatter', mode: 'lines',
@@ -581,7 +662,7 @@
                     fill: 'tozeroy', fillcolor: 'rgba(245, 158, 11, 0.1)',
                     name: 'ATR'
                 };
-                Plotly.newPlot('atrChart', [atrTrace], commonLayout, {responsive: true, displayModeBar: false});
+                Plotly.newPlot('atrChart', [atrTrace], atrLayout, {responsive: true, displayModeBar: false});
             }
         }
     </script>

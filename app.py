@@ -131,6 +131,13 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
         low_base = close_series
     df["High_20"] = high_base.rolling(window=20).max()
     df["Low_20"] = low_base.rolling(window=20).min()
+    
+    # Bollinger Bands (20, 2)
+    df["BB_Middle"] = close_series.rolling(window=20).mean()
+    df["BB_Std"] = close_series.rolling(window=20).std()
+    df["BB_Upper"] = df["BB_Middle"] + (2 * df["BB_Std"])
+    df["BB_Lower"] = df["BB_Middle"] - (2 * df["BB_Std"])
+
     for span in [8, 13, 21, 34, 55, 100]:
         df[f"EMA_{span}"] = close_series.ewm(span=span, adjust=False).mean()
     window_rsi = 14
@@ -2173,6 +2180,9 @@ def get_history(ticker: str, years: int = 2, interval: str = "1d"):
     ema_8_list = df["EMA_8"].tolist() if "EMA_8" in df.columns else None
     ema_21_list = df["EMA_21"].tolist() if "EMA_21" in df.columns else None
     ema_55_list = df["EMA_55"].tolist() if "EMA_55" in df.columns else None
+    bb_upper = df["BB_Upper"].tolist() if "BB_Upper" in df.columns else None
+    bb_lower = df["BB_Lower"].tolist() if "BB_Lower" in df.columns else None
+    bb_middle = df["BB_Middle"].tolist() if "BB_Middle" in df.columns else None
 
     response = {
         "dates": dates,
@@ -2184,6 +2194,9 @@ def get_history(ticker: str, years: int = 2, interval: str = "1d"):
         "ema_8": ema_8_list,
         "ema_21": ema_21_list,
         "ema_55": ema_55_list,
+        "bb_upper": bb_upper,
+        "bb_lower": bb_lower,
+        "bb_middle": bb_middle,
     }
 
     def _clean_value(x):
