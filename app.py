@@ -700,6 +700,9 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
     candidates = [ticker, "EUR=X", "DX-Y.NYB"]
     now = datetime.now()
     raw_news = []
+    # Fetch more candidates to ensure we find important news
+    fetch_limit = 50
+    
     for sym in candidates:
         try:
             t = yf.Ticker(sym)
@@ -723,22 +726,22 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
                     "summary": "",
                 }
             )
-        if len(raw_news) >= limit:
+        if len(raw_news) >= fetch_limit:
             break
-    twitter_news = fetch_twitter_news(instrument_name, limit=limit)
+    twitter_news = fetch_twitter_news(instrument_name, limit=fetch_limit)
     if twitter_news:
         raw_news.extend(twitter_news)
-    official_news = fetch_official_rss_news(limit=limit)
+    official_news = fetch_official_rss_news(limit=fetch_limit)
     if official_news:
         raw_news.extend(official_news)
     is_fx = ticker.endswith("=X") or "/" in instrument_name
     if is_fx:
-        fx_news = fetch_fx_rss_news(limit=limit)
+        fx_news = fetch_fx_rss_news(limit=fetch_limit)
         if fx_news:
             raw_news.extend(fx_news)
     is_crypto = "BTC" in ticker.upper() or "BTC" in instrument_name.upper()
     if is_crypto:
-        crypto_news = fetch_crypto_rss_news(limit=limit)
+        crypto_news = fetch_crypto_rss_news(limit=fetch_limit)
         if crypto_news:
             raw_news.extend(crypto_news)
     if not raw_news:
@@ -755,7 +758,7 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
         ]
         return items, 0.0
     raw_news.sort(key=lambda n: n.get("time") or now, reverse=True)
-    raw_news = raw_news[:limit]
+    
     positives = ["growth", "rise", "strong", "higher", "bull", "record", "gain"]
     negatives = ["fall", "drop", "weak", "lower", "bear", "loss", "risk"]
     macro_words = [
@@ -809,20 +812,25 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
         if src.get("publisher") in ("Federal Reserve", "ECB"):
             official_score += score
             official_count += 1
-        items.append(
-            {
-                "title": title,
-                "publisher": src.get("publisher", ""),
-                "link": src.get("link", ""),
-                "time": t_time,
-                "score": score,
-                "importance": importance,
-                "effect": effect,
-                "summary": summary,
-            }
-        )
+        
+        # Only include High or Medium importance news
+        if importance in ["High", "Medium"]:
+            items.append(
+                {
+                    "title": title,
+                    "publisher": src.get("publisher", ""),
+                    "link": src.get("link", ""),
+                    "time": t_time,
+                    "score": score,
+                    "importance": importance,
+                    "effect": effect,
+                    "summary": summary,
+                }
+            )
+            
     avg_official = official_score / official_count if official_count else 0.0
-    return items, avg_official
+    # Return top 5 most recent important news
+    return items[:5], avg_official
 
 
 def fetch_future_economic_events(days_ahead: int = 7):
