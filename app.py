@@ -701,7 +701,7 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
     now = datetime.now()
     raw_news = []
     # Fetch more candidates to ensure we find important news
-    fetch_limit = 50
+    fetch_limit = 100
     
     for sym in candidates:
         try:
@@ -813,8 +813,8 @@ def compute_news_sentiment(ticker: str, instrument_name: str, limit: int = 20):
             official_score += score
             official_count += 1
         
-        # Only include High or Medium importance news
-        if importance in ["High", "Medium"]:
+        # Only include High importance news
+        if importance == "High":
             items.append(
                 {
                     "title": title,
