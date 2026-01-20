@@ -309,7 +309,9 @@
 <body>
     <div class="container">
         <header>
-            <h1>Market Context</h1>
+            <a href="https://RiskCurve.ai" target="_blank" class="brand-link">
+                <h1>MVP(RiskCurve)</h1>
+            </a>
             <div class="subtitle">Mobile-First Forecasting Dashboard</div>
         </header>
         
@@ -335,7 +337,7 @@
                 </select>
             </div>
 
-            <button onclick="updateDashboard()">Analyze Market</button>
+            <button id="analyze-btn" onclick="updateDashboard()">Analyze Market</button>
         </div>
 
         <div id="loading"><span class="spinner"></span>Analyzing market data...</div>
@@ -373,20 +375,6 @@
                     </div>
                 </div>
 
-                <!-- RiskCurve Integration -->
-                <div class="card has-content-expanded">
-                    <h3>Market Context</h3>
-                    <div class="card-content">
-                        <div style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">
-                            Check market regimes & volatility analysis on RiskCurve.
-                        </div>
-                        <a href="https://riskcurve.ai/" target="_blank" style="text-decoration: none; display: block;">
-                            <button style="background: linear-gradient(135deg, #f59e0b, #d97706); margin-top: 0;">
-                                Open RiskCurve.ai ↗
-                            </button>
-                        </a>
-                    </div>
-                </div>
 
                 <div class="card has-content-expanded">
                     <h3>Help & Guide</h3>
