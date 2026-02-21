@@ -1,5 +1,3 @@
-import os
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -28,6 +26,13 @@ try:
     TF_AVAILABLE = True
 except Exception:
     TF_AVAILABLE = False
+
+try:
+    from riskcurve.pipeline import run_pipeline_d1
+
+    RISKCURVE_AVAILABLE = True
+except Exception:
+    RISKCURVE_AVAILABLE = False
 
 
 INSTRUMENT_SETTINGS = {
@@ -1632,6 +1637,96 @@ def combine_signals(
     return details
 
 
+def compute_riskcurve_phase(df_raw: pd.DataFrame):
+    if not RISKCURVE_AVAILABLE:
+        return None
+    if df_raw is None or df_raw.empty:
+        return None
+    df = df_raw.copy()
+    if not isinstance(df.index, pd.DatetimeIndex):
+        try:
+            df.index = pd.to_datetime(df.index)
+        except Exception:
+            return None
+    df = df.sort_index()
+    if "Open" not in df.columns:
+        df["Open"] = df["Close"]
+    if "High" not in df.columns:
+        df["High"] = df["Close"]
+    if "Low" not in df.columns:
+        df["Low"] = df["Close"]
+    if "Volume" not in df.columns:
+        df["Volume"] = 0.0
+    raw = df.reset_index()
+    date_col = raw.columns[0]
+    raw = raw.rename(
+        columns={
+            date_col: "date",
+            "Open": "open",
+            "High": "high",
+            "Low": "low",
+            "Close": "close",
+            "Volume": "volume",
+        }
+    )
+    try:
+        base, train, test, phase_wf, vol_base, dir_base, metrics = run_pipeline_d1(
+            raw,
+            horizon_vol=5,
+            min_transitions=50,
+            date_col="date",
+        )
+    except Exception:
+        return None
+    split_date = metrics.get("split_date")
+    if split_date is None or "phase_consensus" not in base.columns:
+        return None
+    phase_train = base.loc[base["date"] < split_date, "phase_consensus"].astype(
+        "category"
+    )
+    if len(phase_train) < 2:
+        return None
+    curr_phase = phase_train.iloc[:-1].reset_index(drop=True)
+    next_phase = phase_train.iloc[1:].reset_index(drop=True)
+    phase_trans = pd.crosstab(curr_phase, next_phase, normalize="index")
+    prev_phase = base["phase_consensus"].iloc[-1]
+    if prev_phase in phase_trans.index:
+        row = phase_trans.loc[prev_phase]
+    else:
+        row = pd.Series({col: np.nan for col in phase_trans.columns}, index=phase_trans.columns)
+    p_trend = float(row.get("Trend", np.nan))
+    p_flat = float(row.get("Flat", np.nan))
+    p_neutral = float(row.get("Neutral", np.nan))
+    probs = {
+        "Trend": p_trend,
+        "Flat": p_flat,
+        "Uncertain": p_neutral,
+    }
+    best_label = max(
+        probs,
+        key=lambda k: probs[k] if probs[k] == probs[k] else -1.0,
+    )
+    best_prob = probs[best_label]
+    threshold = 0.55
+    if not np.isfinite(best_prob) or best_prob < threshold:
+        label = "Uncertain"
+    else:
+        label = best_label
+    return {
+        "label": label,
+        "prob_trend": p_trend,
+        "prob_flat": p_flat,
+        "prob_uncertain": p_neutral,
+        "prob_max": best_prob,
+        "split_date": split_date,
+        "raw_phase_transition": phase_trans.to_dict(),
+        "metrics": {
+            "vol_test": metrics.get("vol_test"),
+            "phase_test": metrics.get("phase_test"),
+        },
+    }
+
+
 def enrich_signals_with_atr(signals: dict, atr_info: dict | None):
     if not atr_info:
         return signals
@@ -1693,6 +1788,9 @@ def get_signals_for_ticker(
         raise ValueError("Failed to load data for ticker")
     df_full = add_features(df_raw)
     atr_info = get_atr_volatility_info(df_full)
+    riskcurve_phase = None
+    if interval == "1d":
+        riskcurve_phase = compute_riskcurve_phase(df_raw)
 
     support_level = None
     resistance_level = None
@@ -1758,6 +1856,7 @@ def get_signals_for_ticker(
         "news_items": news_items,
         "future_events": future_events,
         "patterns": patterns,
+        "phase_state": riskcurve_phase,
         "signal": {
             "action": signals["action"],
             "score": float(signals["score"]),
