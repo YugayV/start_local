@@ -1639,8 +1639,6 @@ def combine_signals(
 
 
 def compute_riskcurve_phase(df_raw: pd.DataFrame):
-    if not RISKCURVE_AVAILABLE:
-        return None
     if df_raw is None or df_raw.empty:
         return None
     df = df_raw.copy()
@@ -1670,60 +1668,137 @@ def compute_riskcurve_phase(df_raw: pd.DataFrame):
             "Volume": "volume",
         }
     )
-    try:
-        base, train, test, phase_wf, vol_base, dir_base, metrics = run_pipeline_d1(
-            raw,
-            horizon_vol=5,
-            min_transitions=50,
-            date_col="date",
-        )
-    except Exception:
+    if RISKCURVE_AVAILABLE:
+        try:
+            base, train, test, phase_wf, vol_base, dir_base, metrics = run_pipeline_d1(
+                raw,
+                horizon_vol=5,
+                min_transitions=50,
+                date_col="date",
+            )
+            split_date = metrics.get("split_date")
+            if split_date is not None and "phase_consensus" in base.columns:
+                phase_train = base.loc[
+                    base["date"] < split_date, "phase_consensus"
+                ].astype("category")
+                if len(phase_train) >= 2:
+                    curr_phase = phase_train.iloc[:-1].reset_index(drop=True)
+                    next_phase = phase_train.iloc[1:].reset_index(drop=True)
+                    phase_trans = pd.crosstab(curr_phase, next_phase, normalize="index")
+                    prev_phase = base["phase_consensus"].iloc[-1]
+                    if prev_phase in phase_trans.index:
+                        row = phase_trans.loc[prev_phase]
+                    else:
+                        row = pd.Series(
+                            {col: np.nan for col in phase_trans.columns},
+                            index=phase_trans.columns,
+                        )
+                    p_trend = float(row.get("Trend", np.nan))
+                    p_flat = float(row.get("Flat", np.nan))
+                    p_neutral = float(row.get("Neutral", np.nan))
+                    probs = {
+                        "Trend": p_trend,
+                        "Flat": p_flat,
+                        "Uncertain": p_neutral,
+                    }
+                    best_label = max(
+                        probs,
+                        key=lambda k: probs[k] if probs[k] == probs[k] else -1.0,
+                    )
+                    best_prob = probs[best_label]
+                    threshold = 0.55
+                    if not np.isfinite(best_prob) or best_prob < threshold:
+                        label = "Uncertain"
+                    else:
+                        label = best_label
+                    return {
+                        "label": label,
+                        "prob_trend": p_trend,
+                        "prob_flat": p_flat,
+                        "prob_uncertain": p_neutral,
+                        "prob_max": best_prob,
+                        "split_date": split_date,
+                        "raw_phase_transition": phase_trans.to_dict(),
+                        "metrics": {
+                            "vol_test": metrics.get("vol_test"),
+                            "phase_test": metrics.get("phase_test"),
+                        },
+                    }
+        except Exception:
+            pass
+    df_full = add_features(df.copy())
+    close_series = df_full["Close"]
+    if isinstance(close_series, pd.DataFrame):
+        close_series = close_series.iloc[:, 0]
+    if len(close_series) < 10:
         return None
-    split_date = metrics.get("split_date")
-    if split_date is None or "phase_consensus" not in base.columns:
-        return None
-    phase_train = base.loc[base["date"] < split_date, "phase_consensus"].astype(
-        "category"
-    )
-    if len(phase_train) < 2:
-        return None
-    curr_phase = phase_train.iloc[:-1].reset_index(drop=True)
-    next_phase = phase_train.iloc[1:].reset_index(drop=True)
-    phase_trans = pd.crosstab(curr_phase, next_phase, normalize="index")
-    prev_phase = base["phase_consensus"].iloc[-1]
-    if prev_phase in phase_trans.index:
-        row = phase_trans.loc[prev_phase]
+    if "EMA_8" in df_full.columns:
+        ema_fast = df_full["EMA_8"].iloc[-1]
     else:
-        row = pd.Series({col: np.nan for col in phase_trans.columns}, index=phase_trans.columns)
-    p_trend = float(row.get("Trend", np.nan))
-    p_flat = float(row.get("Flat", np.nan))
-    p_neutral = float(row.get("Neutral", np.nan))
+        ema_fast = close_series.ewm(span=8, adjust=False).mean().iloc[-1]
+    if "EMA_21" in df_full.columns:
+        ema_mid = df_full["EMA_21"].iloc[-1]
+    else:
+        ema_mid = close_series.ewm(span=21, adjust=False).mean().iloc[-1]
+    if "EMA_55" in df_full.columns:
+        ema_slow = df_full["EMA_55"].iloc[-1]
+    else:
+        ema_slow = close_series.ewm(span=55, adjust=False).mean().iloc[-1]
+    cond_up = ema_fast > ema_mid and ema_mid > ema_slow
+    cond_down = ema_fast < ema_mid and ema_mid < ema_slow
+    ret_window = 20 if len(close_series) >= 20 else len(close_series) - 1
+    if ret_window <= 0:
+        slope = 0.0
+    else:
+        start_price = float(close_series.iloc[-ret_window])
+        end_price = float(close_series.iloc[-1])
+        slope = (end_price - start_price) / start_price
+    if cond_up and slope > 0:
+        label = "Trend"
+        p_trend = min(0.9, 0.6 + abs(slope) * 5.0)
+        p_flat = 0.7 - (p_trend - 0.6)
+        p_uncertain = 1.0 - p_trend - p_flat
+    elif cond_down and slope < 0:
+        label = "Trend"
+        p_trend = min(0.9, 0.6 + abs(slope) * 5.0)
+        p_flat = 0.7 - (p_trend - 0.6)
+        p_uncertain = 1.0 - p_trend - p_flat
+    else:
+        label = "Flat"
+        p_flat = 0.7
+        p_trend = 0.2
+        p_uncertain = 0.1
+    p_trend = float(max(0.0, min(1.0, p_trend)))
+    p_flat = float(max(0.0, min(1.0, p_flat)))
+    p_uncertain = float(max(0.0, min(1.0, p_uncertain)))
+    total = p_trend + p_flat + p_uncertain
+    if total > 0:
+        p_trend /= total
+        p_flat /= total
+        p_uncertain /= total
     probs = {
         "Trend": p_trend,
         "Flat": p_flat,
-        "Uncertain": p_neutral,
+        "Uncertain": p_uncertain,
     }
     best_label = max(
         probs,
         key=lambda k: probs[k] if probs[k] == probs[k] else -1.0,
     )
     best_prob = probs[best_label]
-    threshold = 0.55
-    if not np.isfinite(best_prob) or best_prob < threshold:
-        label = "Uncertain"
-    else:
-        label = best_label
+    if not np.isfinite(best_prob):
+        best_prob = 0.0
     return {
         "label": label,
         "prob_trend": p_trend,
         "prob_flat": p_flat,
-        "prob_uncertain": p_neutral,
+        "prob_uncertain": p_uncertain,
         "prob_max": best_prob,
-        "split_date": split_date,
-        "raw_phase_transition": phase_trans.to_dict(),
+        "split_date": None,
+        "raw_phase_transition": None,
         "metrics": {
-            "vol_test": metrics.get("vol_test"),
-            "phase_test": metrics.get("phase_test"),
+            "vol_test": None,
+            "phase_test": None,
         },
     }
 
