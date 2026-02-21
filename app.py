@@ -2031,6 +2031,9 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             prob_trend = riskcurve_phase.get("prob_trend")
             prob_flat = riskcurve_phase.get("prob_flat")
             prob_uncertain = riskcurve_phase.get("prob_uncertain")
+            metrics_phase = riskcurve_phase.get("metrics") or {}
+            vol_test = metrics_phase.get("vol_test") or {}
+            phase_test = metrics_phase.get("phase_test") or {}
             col_phase_left, col_phase_right = st.columns([1, 2])
             with col_phase_left:
                 st.metric("Current Phase", label or "Unknown")
@@ -2040,6 +2043,29 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
                     st.metric("P(Flat)", f"{prob_flat*100:.1f}%")
                 if prob_uncertain is not None:
                     st.metric("P(Uncertain)", f"{prob_uncertain*100:.1f}%")
+                rv_mae = vol_test.get("rv_mae")
+                rv_rmse = vol_test.get("rv_rmse")
+                rv_mape = vol_test.get("mape")
+                acc = phase_test.get("accuracy")
+                bal_acc = phase_test.get("balanced_accuracy")
+                if rv_mae is not None or rv_rmse is not None or rv_mape is not None:
+                    st.markdown("**Volatility Regression (test)**")
+                    if rv_mae is not None:
+                        st.write(f"RV MAE: {rv_mae:.5f}")
+                    if rv_rmse is not None:
+                        st.write(f"RV RMSE: {rv_rmse:.5f}")
+                    if rv_mape is not None:
+                        st.write(f"RV MAPE: {rv_mape*100:.2f}%")
+                        st.caption(
+                            "RV MAPE — средняя относительная ошибка прогноза реализованной волатильности "
+                            "(чем меньше значение, тем лучше качество модели волатильности)."
+                        )
+                if acc is not None or bal_acc is not None:
+                    st.markdown("**Phase Classification (test)**")
+                    if acc is not None:
+                        st.write(f"Accuracy: {acc*100:.2f}%")
+                    if bal_acc is not None:
+                        st.write(f"Balanced Accuracy: {bal_acc*100:.2f}%")
             with col_phase_right:
                 phase_df = pd.DataFrame(
                     {
