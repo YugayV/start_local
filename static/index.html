@@ -393,8 +393,16 @@
                 <div class="card has-content-expanded" id="news-card">
                     <h3>News & Sentiment</h3>
                     <div class="card-content">
-                        <div id="newsList" style="display: flex; flex-direction: column; gap: 12px;">
-                            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem;">Select an instrument to load news</div>
+                        <div id="newsCarousel" style="position: relative; max-height: 110px; overflow: hidden;">
+                            <div id="newsSlide">
+                                <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 8px 4px;">
+                                    Select an instrument to load news
+                                </div>
+                            </div>
+                            <div style="position: absolute; inset: auto 8px 4px 8px; display: flex; justify-content: space-between; pointer-events: none;">
+                                <button id="newsPrev" style="pointer-events: auto; background: rgba(15,23,42,0.8); border: none; color: #e5e7eb; border-radius: 999px; width: 22px; height: 22px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">‹</button>
+                                <button id="newsNext" style="pointer-events: auto; background: rgba(15,23,42,0.8); border: none; color: #e5e7eb; border-radius: 999px; width: 22px; height: 22px; font-size: 0.8rem; display: flex; align-items: center; justify-content: center;">›</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -471,6 +479,99 @@
             }
         }
 
+        let _newsItems = [];
+        let _newsIndex = 0;
+        let _newsTimerId = null;
+
+        function renderSingleNewsSlide(item) {
+            const slide = document.getElementById('newsSlide');
+            if (!slide) return;
+            if (!item) {
+                slide.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 8px 4px;">
+                        No recent news found for this pair.
+                    </div>
+                `;
+                return;
+            }
+            let colorClass = '#94a3b8';
+            if (item.importance === 'High') colorClass = '#ef4444';
+            else if (item.importance === 'Medium') colorClass = '#f59e0b';
+            else if (item.importance === 'Low') colorClass = '#10b981';
+
+            let dateStr = '';
+            if (item.time) {
+                const date = new Date(item.time);
+                dateStr =
+                    date.toLocaleDateString() +
+                    ' ' +
+                    date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+
+            slide.innerHTML = `
+                <div style="background: rgba(255,255,255,0.05); padding: 8px 10px; border-radius: 8px; border-left: 3px solid ${colorClass};">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span style="font-size: 0.7rem; color: ${colorClass}; font-weight: 600;">${(item.importance || 'INFO').toUpperCase()}</span>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary);">${dateStr}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500; margin-bottom: 2px; line-height: 1.2; max-height: 2.4em; overflow: hidden;">
+                        ${item.title}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${item.publisher || 'Source'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateNewsCarousel(items) {
+            _newsItems = Array.isArray(items) ? items.slice(0, 20) : [];
+            _newsIndex = 0;
+            if (_newsTimerId) {
+                clearInterval(_newsTimerId);
+                _newsTimerId = null;
+            }
+
+            const prevBtn = document.getElementById('newsPrev');
+            const nextBtn = document.getElementById('newsNext');
+            if (_newsItems.length <= 1) {
+                if (prevBtn) prevBtn.style.display = 'none';
+                if (nextBtn) nextBtn.style.display = 'none';
+            } else {
+                if (prevBtn) prevBtn.style.display = 'flex';
+                if (nextBtn) nextBtn.style.display = 'flex';
+            }
+
+            if (_newsItems.length === 0) {
+                renderSingleNewsSlide(null);
+                return;
+            }
+
+            renderSingleNewsSlide(_newsItems[_newsIndex]);
+
+            if (_newsItems.length > 1) {
+                _newsTimerId = setInterval(() => {
+                    _newsIndex = (_newsIndex + 1) % _newsItems.length;
+                    renderSingleNewsSlide(_newsItems[_newsIndex]);
+                }, 6000);
+            }
+        }
+
+        window.updateNewsCarousel = updateNewsCarousel;
+
+        document.addEventListener('click', (e) => {
+            if (e.target && e.target.id === 'newsPrev' && _newsItems.length > 0) {
+                e.preventDefault();
+                _newsIndex = (_newsIndex - 1 + _newsItems.length) % _newsItems.length;
+                renderSingleNewsSlide(_newsItems[_newsIndex]);
+            }
+            if (e.target && e.target.id === 'newsNext' && _newsItems.length > 0) {
+                e.preventDefault();
+                _newsIndex = (_newsIndex + 1) % _newsItems.length;
+                renderSingleNewsSlide(_newsItems[_newsIndex]);
+            }
+        });
+
         async function updateDashboard() {
             const tickerSelect = document.getElementById('ticker');
             const ticker = tickerSelect.value;
@@ -498,35 +599,9 @@
                 // Raw Data
                 // document.getElementById('signalCard').textContent = JSON.stringify(predictData.signal, null, 2); // REMOVED
 
-                // News Items
-                const newsList = document.getElementById('newsList');
-                if (predictData.news_items && predictData.news_items.length > 0) {
-                    newsList.innerHTML = predictData.news_items.map(item => {
-                        let colorClass = '#94a3b8'; // Default grey
-                        if (item.importance === 'High') colorClass = '#ef4444'; // Red
-                        else if (item.importance === 'Medium') colorClass = '#f59e0b'; // Orange
-                        else if (item.importance === 'Low') colorClass = '#10b981'; // Green
-                        
-                        // Format date
-                        let dateStr = '';
-                        if (item.time) {
-                            const date = new Date(item.time);
-                            dateStr = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                        }
-
-                        return `
-                        <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; border-left: 3px solid ${colorClass};">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                <span style="font-size: 0.8rem; color: ${colorClass}; font-weight: 600;">${(item.importance || 'INFO').toUpperCase()}</span>
-                                <span style="font-size: 0.8rem; color: var(--text-secondary);">${dateStr}</span>
-                            </div>
-                            <div style="font-size: 0.95rem; color: var(--text-primary); font-weight: 500; margin-bottom: 4px;">${item.title}</div>
-                             <div style="font-size: 0.85rem; color: var(--text-secondary);">${item.publisher || 'Source'}</div>
-                        </div>
-                        `;
-                    }).join('');
-                } else {
-                    newsList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No recent news found for this pair.</div>';
+                // News Items (compact vertical slideshow)
+                if (typeof window.updateNewsCarousel === 'function') {
+                    window.updateNewsCarousel(predictData.news_items || []);
                 }
                 // Top recommendation banner (HOLD / BUY / SELL) is hidden in mobile SPA
                 bannerEl.style.display = 'none';
@@ -590,33 +665,6 @@
             const predPrices = backtest.target_price_pred || [];
             const truePrices = backtest.target_price_true || null;
 
-            const open = [];
-            const highTrue = truePrices ? [] : null;
-            const lowTrue = truePrices ? [] : null;
-            const closeTrue = truePrices ? [] : null;
-            const highPred = [];
-            const lowPred = [];
-            const closePred = [];
-
-            for (let i = 0; i < base.length; i++) {
-                const b = base[i];
-                const p = predPrices[i];
-                open.push(b);
-                if (truePrices) {
-                    const t = truePrices[i];
-                    closeTrue.push(t);
-                    const h = Math.max(b, t);
-                    const l = Math.min(b, t);
-                    highTrue.push(h);
-                    lowTrue.push(l);
-                }
-                closePred.push(p);
-                const hp = Math.max(b, p);
-                const lp = Math.min(b, p);
-                highPred.push(hp);
-                lowPred.push(lp);
-            }
-
             const layout = {
                 paper_bgcolor: '#1e293b',
                 plot_bgcolor: '#1e293b',
@@ -637,29 +685,30 @@
             if (truePrices) {
                 traces.push({
                     x: backtest.dates,
-                    open: open,
-                    high: highTrue,
-                    low: lowTrue,
-                    close: closeTrue,
-                    type: 'candlestick',
-                    name: 'Actual Move',
-                    increasing: {line: {color: '#6b7280'}},
-                    decreasing: {line: {color: '#475569'}},
-                    opacity: 0.7
+                    y: truePrices,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {color: '#6b7280', width: 1.5},
+                    name: 'Actual Target Price'
                 });
             }
 
             traces.push({
                 x: backtest.dates,
-                open: open,
-                high: highPred,
-                low: lowPred,
-                close: closePred,
-                type: 'candlestick',
-                name: 'Predicted Move',
-                increasing: {line: {color: '#22c55e'}},
-                decreasing: {line: {color: '#ef4444'}},
-                opacity: truePrices ? 0.5 : 0.9
+                y: predPrices,
+                type: 'scatter',
+                mode: 'lines',
+                line: {color: '#22c55e', width: 2},
+                name: 'Predicted Target Price'
+            });
+
+            traces.push({
+                x: backtest.dates,
+                y: base,
+                type: 'scatter',
+                mode: 'lines',
+                line: {color: '#4b5563', width: 1, dash: 'dot'},
+                name: 'Base Price'
             });
 
             Plotly.newPlot(div, traces, layout, {responsive: true, displayModeBar: false});
@@ -887,18 +936,12 @@
                 });
             }
 
-            // 2. Candlestick OHLC as основной график
+            // 2. Основной ценовой график — линейный Close
             traces.push({
-                x: data.dates,
-                open: data.open,
-                high: data.high,
-                low: data.low,
-                close: data.close,
-                type: 'candlestick',
-                name: 'Price',
-                increasing: {line: {color: '#22c55e'}},
-                decreasing: {line: {color: '#ef4444'}},
-                whiskerwidth: 0.5
+                x: data.dates, y: data.close,
+                type: 'scatter', mode: 'lines',
+                line: {color: '#ffffff', width: 2.5},
+                name: 'Price'
             });
 
             // 3. EMAs 5, 8, 13, 21, 34, 55, 89

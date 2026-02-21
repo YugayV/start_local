@@ -16,6 +16,7 @@ except Exception:
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+from sklearn.metrics import f1_score, balanced_accuracy_score
 from datetime import datetime, timedelta
 import xml.etree.ElementTree as ET
 
@@ -266,9 +267,14 @@ def train_lstm_models(df: pd.DataFrame, window: int = 20):
 
 
 def train_models(df: pd.DataFrame):
+    df_model = df.copy()
+    if "Target_Reg" in df_model.columns and "Target_Class" in df_model.columns:
+        df_model = df_model.dropna(subset=["Target_Reg", "Target_Class"])
+    if len(df_model) > 1:
+        df_model = df_model.iloc[:-1].copy()
     feature_cols = [
         c
-        for c in df.columns
+        for c in df_model.columns
         if c
         not in [
             "Future_Price_7d",
@@ -276,13 +282,13 @@ def train_models(df: pd.DataFrame):
             "Target_Class",
             "Target_Reg",
         ]
-        and df[c].dtype != "O"
+        and df_model[c].dtype != "O"
     ]
-    data = df[feature_cols].values
-    y_class_raw = df["Target_Class"].values
+    data = df_model[feature_cols].values
+    y_class_raw = df_model["Target_Class"].values
     y_class = y_class_raw + 1
-    y_reg = df["Target_Reg"].values
-    split = int(len(df) * 0.8)
+    y_reg = df_model["Target_Reg"].values
+    split = int(len(df_model) * 0.8)
     x_train, x_test = data[:split], data[split:]
     y_class_train, y_class_test = y_class[:split], y_class[split:]
     y_reg_train, y_reg_test = y_reg[:split], y_reg[split:]
@@ -390,11 +396,11 @@ def train_models(df: pd.DataFrame):
         "svc_scaler": scaler_svc,
         "svc_pred_test": svc_pred_test,
         "svc_proba_test": svc_proba_test,
-        "df": df,
+        "df": df_model,
         "split": split,
         "best_classifier": "svc",
     }
-    lstm_data = train_lstm_models(df)
+    lstm_data = train_lstm_models(df_model)
     if lstm_data:
         result.update(lstm_data)
         l_len = min(len(result["reg_pred_test"]), len(result["lstm_reg_pred_test"]))
@@ -421,28 +427,42 @@ def train_models(df: pd.DataFrame):
             hybrid_class = np.where(max_conf_hybrid < 0.5, 0, hybrid_class)
             result["hybrid_class_pred_test"] = hybrid_class
 
+            # classification metrics for imbalanced data: F1-macro and balanced accuracy
             y_true_cls_lgbm = result["y_class_test"]
-            acc_lgbm = float(
-                np.mean(y_true_cls_lgbm == result["class_pred_test"])
-            )
+            acc_lgbm = float(np.mean(y_true_cls_lgbm == result["class_pred_test"]))
+            bal_lgbm = float(balanced_accuracy_score(y_true_cls_lgbm, result["class_pred_test"]))
+            f1_lgbm = float(f1_score(y_true_cls_lgbm, result["class_pred_test"], average="macro"))
+
             y_true_cls_lstm = result["lstm_y_class_test"]
-            acc_lstm = float(
-                np.mean(y_true_cls_lstm == result["lstm_class_pred_test"])
-            )
+            acc_lstm = float(np.mean(y_true_cls_lstm == result["lstm_class_pred_test"]))
+            bal_lstm = float(balanced_accuracy_score(y_true_cls_lstm, result["lstm_class_pred_test"]))
+            f1_lstm = float(f1_score(y_true_cls_lstm, result["lstm_class_pred_test"], average="macro"))
+
             y_true_cls_hybrid = result["y_class_test"][-l_len:]
-            acc_hybrid = float(
-                np.mean(y_true_cls_hybrid == hybrid_class)
-            )
+            acc_hybrid = float(np.mean(y_true_cls_hybrid == hybrid_class))
+            bal_hybrid = float(balanced_accuracy_score(y_true_cls_hybrid, hybrid_class))
+            f1_hybrid = float(f1_score(y_true_cls_hybrid, hybrid_class, average="macro"))
+
             y_true_cls_svc = result["y_class_test"]
-            acc_svc = float(
-                np.mean(y_true_cls_svc == svc_pred_test)
-            )
+            acc_svc = float(np.mean(y_true_cls_svc == svc_pred_test))
+            bal_svc = float(balanced_accuracy_score(y_true_cls_svc, svc_pred_test))
+            f1_svc = float(f1_score(y_true_cls_svc, svc_pred_test, average="macro"))
 
             metrics_hybrid = _regression_metrics(y_true_seg, hybrid_reg)
             metrics_lgbm["acc"] = acc_lgbm
+            metrics_lgbm["balanced_acc"] = bal_lgbm
+            metrics_lgbm["f1_macro"] = f1_lgbm
             metrics_lstm["acc"] = acc_lstm
+            metrics_lstm["balanced_acc"] = bal_lstm
+            metrics_lstm["f1_macro"] = f1_lstm
             metrics_hybrid["acc"] = acc_hybrid
-            metrics_svc = {"acc": acc_svc}
+            metrics_hybrid["balanced_acc"] = bal_hybrid
+            metrics_hybrid["f1_macro"] = f1_hybrid
+            metrics_svc = {
+                "acc": acc_svc,
+                "balanced_acc": bal_svc,
+                "f1_macro": f1_svc,
+            }
 
             result["metrics"] = {
                 "lgbm": metrics_lgbm,
@@ -451,18 +471,19 @@ def train_models(df: pd.DataFrame):
                 "svc": metrics_svc,
                 "weights": {"lgbm": float(w_lgbm), "lstm": float(w_lstm)},
             }
-            best_name, best_acc = max(
-                [
-                    ("lgbm", acc_lgbm),
-                    ("lstm", acc_lstm),
-                    ("hybrid", acc_hybrid),
-                    ("svc", acc_svc),
-                ],
-                key=lambda x: x[1],
-            )
-            result["best_by_accuracy"] = {
+
+            # choose best classifier by F1-macro (для несбалансированного датасета)
+            candidates = [
+                ("lgbm", f1_lgbm),
+                ("lstm", f1_lstm),
+                ("hybrid", f1_hybrid),
+                ("svc", f1_svc),
+            ]
+            best_name, best_f1 = max(candidates, key=lambda x: x[1])
+            result["best_classifier"] = best_name
+            result["best_by_f1"] = {
                 "name": best_name,
-                "acc": float(best_acc),
+                "f1_macro": float(best_f1),
             }
     return result
 
@@ -2082,8 +2103,8 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             ["Auto (SVC as main)", "Manual Selection"],
             index=0,
         )
-        best_by_acc = model_data.get("best_by_accuracy") or {}
-        best_name_internal = best_by_acc.get("name")
+        best_by_f1 = model_data.get("best_by_f1") or {}
+        best_name_internal = best_by_f1.get("name")
         best_label_map = {
             "svc": "SVC",
             "lstm": "LSTM",
@@ -2095,10 +2116,10 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             if best_name_internal is not None
             else None
         )
-        best_acc = best_by_acc.get("acc")
-        if best_label is not None and best_acc is not None:
+        best_f1 = best_by_f1.get("f1_macro")
+        if best_label is not None and best_f1 is not None:
             st.sidebar.caption(
-                f"Best by Accuracy: {best_label} (Accuracy {best_acc*100:.2f}%)"
+                f"Best by F1-macro: {best_label} (F1 {best_f1*100:.2f}%)"
             )
         st.sidebar.subheader("Classification Confidence Params")
         cls_conf_threshold = st.sidebar.slider(
