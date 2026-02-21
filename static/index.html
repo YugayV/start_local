@@ -397,6 +397,31 @@
                     </div>
                 </div>
 
+                <div class="card has-content-expanded">
+                    <h3>Phase State (Trend / Flat)</h3>
+                    <div class="card-content">
+                        <div id="phaseMetrics" class="metrics-grid" style="margin-bottom: 16px;">
+                            <div class="metric-item">
+                                <div class="metric-label">Current Phase</div>
+                                <div class="metric-value">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">P(Trend)</div>
+                                <div class="metric-value">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">P(Flat)</div>
+                                <div class="metric-value">-</div>
+                            </div>
+                            <div class="metric-item">
+                                <div class="metric-label">P(Uncertain)</div>
+                                <div class="metric-value">-</div>
+                            </div>
+                        </div>
+                        <div id="phaseChart" class="chart-container" style="height: 260px;"></div>
+                    </div>
+                </div>
+
 
                 <div class="card has-content-expanded">
                     <h3>Help & Guide</h3>
@@ -502,6 +527,7 @@
                 bannerEl.style.display = 'block';
                 
                 // Metrics
+                // Metrics
                 const metricsContainer = document.getElementById('metricsBox');
                 metricsContainer.innerHTML = `
                     <div class="metric-item">
@@ -523,6 +549,9 @@
                         <div class="metric-value">${predictData.signal.atr_level || 'N/A'}</div>
                     </div>
                 `;
+                
+                // Phase State (RiskCurve)
+                renderPhaseState(predictData.phase_state);
 
                 // History for Charts
                 const historyUrl = `/history?ticker=${encodeURIComponent(ticker)}&interval=1d&years=2`;
@@ -538,6 +567,76 @@
             } finally {
                 loadingEl.style.display = 'none';
             }
+        }
+
+        function renderPhaseState(phaseState) {
+            const metricsBox = document.getElementById('phaseMetrics');
+            const chartDiv = document.getElementById('phaseChart');
+            if (!metricsBox || !chartDiv) return;
+        
+            if (!phaseState) {
+                metricsBox.innerHTML = `
+                    <div class="metric-item"><div class="metric-label">Current Phase</div><div class="metric-value">N/A</div></div>
+                    <div class="metric-item"><div class="metric-label">P(Trend)</div><div class="metric-value">-</div></div>
+                    <div class="metric-item"><div class="metric-label">P(Flat)</div><div class="metric-value">-</div></div>
+                    <div class="metric-item"><div class="metric-label">P(Uncertain)</div><div class="metric-value">-</div></div>
+                `;
+                Plotly.purge(chartDiv);
+                return;
+            }
+        
+            const label = phaseState.label || 'Unknown';
+            const pTrend = phaseState.prob_trend ?? 0;
+            const pFlat = phaseState.prob_flat ?? 0;
+            const pUnc = phaseState.prob_uncertain ?? 0;
+        
+            metricsBox.innerHTML = `
+                <div class="metric-item">
+                    <div class="metric-label">Current Phase</div>
+                    <div class="metric-value">${label}</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">P(Trend)</div>
+                    <div class="metric-value">${(pTrend * 100).toFixed(1)}%</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">P(Flat)</div>
+                    <div class="metric-value">${(pFlat * 100).toFixed(1)}%</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-label">P(Uncertain)</div>
+                    <div class="metric-value">${(pUnc * 100).toFixed(1)}%</div>
+                </div>
+            `;
+        
+            const phaseData = {
+                x: ['Trend', 'Flat', 'Uncertain'],
+                y: [pTrend, pFlat, pUnc],
+                type: 'bar',
+                marker: {
+                    color: ['#10b981', '#eab308', '#64748b']
+                }
+            };
+        
+            const layout = {
+                paper_bgcolor: '#1e293b',
+                plot_bgcolor: '#1e293b',
+                font: {family: 'Inter, sans-serif', color: '#94a3b8', size: 11},
+                margin: {t: 30, r: 10, l: 35, b: 30},
+                yaxis: {
+                    gridcolor: '#334155',
+                    zerolinecolor: '#334155',
+                    tickformat: '.0%',
+                    title: 'Probability'
+                },
+                xaxis: {
+                    gridcolor: '#334155',
+                    zerolinecolor: '#334155'
+                },
+                title: {text: 'Phase Probabilities (Next Period)', font: {size: 12}}
+            };
+        
+            Plotly.newPlot(chartDiv, [phaseData], layout, {responsive: true, displayModeBar: false});
         }
 
         function renderCharts(data, signal, horizonDays) {
@@ -661,6 +760,12 @@
                 type: 'scatter', mode: 'lines',
                 line: {color: '#eab308', width: 1}, // Yellow
                 name: 'EMA 21', opacity: 0.8
+            });
+            if (data.ema_55) traces.push({
+                x: data.dates, y: data.ema_55,
+                type: 'scatter', mode: 'lines',
+                line: {color: '#6366f1', width: 1}, // Indigo
+                name: 'EMA 55', opacity: 0.9
             });
 
             // 4. Close Price (Main)
