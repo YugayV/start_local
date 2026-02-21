@@ -126,7 +126,7 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["BB_Upper"] = df["BB_Middle"] + (2 * df["BB_Std"])
     df["BB_Lower"] = df["BB_Middle"] - (2 * df["BB_Std"])
 
-    for span in [8, 13, 21, 34, 55, 100]:
+    for span in [5, 8, 13, 21, 34, 55, 89]:
         df[f"EMA_{span}"] = close_series.ewm(span=span, adjust=False).mean()
     window_rsi = 14
     delta = close_series.diff()
@@ -2460,9 +2460,13 @@ def get_history(ticker: str, years: int = 2, interval: str = "1d"):
     low_list = low_series.tolist()
     close_list = df["Close"].tolist()
     atr_list = df["ATR_14"].tolist() if "ATR_14" in df.columns else None
+    ema_5_list = df["EMA_5"].tolist() if "EMA_5" in df.columns else None
     ema_8_list = df["EMA_8"].tolist() if "EMA_8" in df.columns else None
+    ema_13_list = df["EMA_13"].tolist() if "EMA_13" in df.columns else None
     ema_21_list = df["EMA_21"].tolist() if "EMA_21" in df.columns else None
+    ema_34_list = df["EMA_34"].tolist() if "EMA_34" in df.columns else None
     ema_55_list = df["EMA_55"].tolist() if "EMA_55" in df.columns else None
+    ema_89_list = df["EMA_89"].tolist() if "EMA_89" in df.columns else None
     bb_upper = df["BB_Upper"].tolist() if "BB_Upper" in df.columns else None
     bb_lower = df["BB_Lower"].tolist() if "BB_Lower" in df.columns else None
     bb_middle = df["BB_Middle"].tolist() if "BB_Middle" in df.columns else None
@@ -2474,9 +2478,13 @@ def get_history(ticker: str, years: int = 2, interval: str = "1d"):
         "low": low_list,
         "close": close_list,
         "atr": atr_list,
+        "ema_5": ema_5_list,
         "ema_8": ema_8_list,
+        "ema_13": ema_13_list,
         "ema_21": ema_21_list,
+        "ema_34": ema_34_list,
         "ema_55": ema_55_list,
+        "ema_89": ema_89_list,
         "bb_upper": bb_upper,
         "bb_lower": bb_lower,
         "bb_middle": bb_middle,
