@@ -528,10 +528,8 @@
                 } else {
                     newsList.innerHTML = '<div style="text-align: center; color: var(--text-secondary); padding: 20px;">No recent news found for this pair.</div>';
                 }
-                const action = predictData.signal.action;
-                bannerEl.textContent = `${action} (Score: ${predictData.signal.score.toFixed(2)})`;
-                bannerEl.className = `recommendation-banner rec-${action}`;
-                bannerEl.style.display = 'block';
+                // Top recommendation banner (HOLD / BUY / SELL) is hidden in mobile SPA
+                bannerEl.style.display = 'none';
                 
                 // Metrics
                 // Metrics
@@ -746,34 +744,30 @@
                 };
             }
 
-            // Forecast Logic
+            // Forecast Logic — show only target point instead of flat dotted line
             let forecastTrace = null;
             if (signal && typeof signal.target_price === 'number') {
                 const lastDate = data.dates[data.dates.length - 1];
-                const lastClose = data.close[data.close.length - 1];
-                const target = signal.target_price;
-                const steps = horizonDays;
-                
-                const dates = [lastDate];
-                const prices = [lastClose];
-                
                 const d = new Date(lastDate);
-                for(let i=1; i<=steps; i++) {
-                    const nextD = new Date(d);
-                    nextD.setDate(d.getDate() + i);
-                    dates.push(nextD.toISOString().split('T')[0]);
-                    prices.push(lastClose + (target - lastClose) * (i/steps));
-                }
+                const steps = horizonDays || 7;
+                d.setDate(d.getDate() + steps);
+                const targetDate = d.toISOString().split('T')[0];
 
                 let color = '#3b82f6';
-                if(signal.action === 'BUY') color = '#10b981';
-                if(signal.action === 'SELL') color = '#ef4444';
+                if (signal.action === 'BUY') color = '#10b981';
+                if (signal.action === 'SELL') color = '#ef4444';
 
                 forecastTrace = {
-                    x: dates, y: prices,
-                    type: 'scatter', mode: 'lines+markers',
-                    line: {color: color, dash: 'dot', width: 2},
-                    name: 'Forecast'
+                    x: [targetDate],
+                    y: [signal.target_price],
+                    type: 'scatter',
+                    mode: 'markers',
+                    marker: {
+                        color: color,
+                        size: 8,
+                        symbol: 'circle'
+                    },
+                    name: `Target (${steps}d)`
                 };
             }
 
