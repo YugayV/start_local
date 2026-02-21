@@ -1904,6 +1904,48 @@ def get_signals_for_ticker(
     future_events = fetch_future_economic_events(days_ahead=7)
     future_events_score = score_future_events(future_events)
     patterns = detect_patterns(df_full["Close"])
+    # Prepare regression backtest info (for frontend visualization)
+    regression_backtest = None
+    try:
+        df_m = model_data.get("df")
+        split = model_data.get("split")
+        y_reg_test = model_data.get("y_reg_test")
+        reg_pred_test = model_data.get("reg_pred_test")
+        if (
+            df_m is not None
+            and split is not None
+            and y_reg_test is not None
+            and reg_pred_test is not None
+            and len(df_m) == len(df_model)
+        ):
+            idx_test = df_m.index[split:]
+            base_close = df_full.loc[idx_test, "Close"]
+            # true and predicted future prices from returns
+            true_returns = np.asarray(y_reg_test, dtype="float32")
+            pred_returns = np.asarray(reg_pred_test, dtype="float32")
+            base_prices = base_close.values.astype("float32")
+            true_prices = base_prices * (1.0 + true_returns)
+            pred_prices = base_prices * (1.0 + pred_returns)
+            # cut to last 120 points to limit payload
+            max_points = 120
+            if len(idx_test) > max_points:
+                idx_test = idx_test[-max_points:]
+                base_prices = base_prices[-max_points:]
+                true_prices = true_prices[-max_points:]
+                pred_prices = pred_prices[-max_points:]
+            dates_bt = [
+                (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+                for d in idx_test
+            ]
+            regression_backtest = {
+                "dates": dates_bt,
+                "base_price": [float(x) for x in base_prices],
+                "target_price_true": [float(x) for x in true_prices],
+                "target_price_pred": [float(x) for x in pred_prices],
+            }
+    except Exception:
+        regression_backtest = None
+
     signals = combine_signals(
         df_full,
         model_data,
@@ -1933,6 +1975,7 @@ def get_signals_for_ticker(
         "future_events": future_events,
         "patterns": patterns,
         "phase_state": riskcurve_phase,
+        "regression_backtest": regression_backtest,
         "signal": {
             "action": signals["action"],
             "score": float(signals["score"]),

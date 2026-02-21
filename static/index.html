@@ -376,6 +376,13 @@
                 </div>
                 
                 <div class="card has-content-expanded">
+                    <h3>Regression Backtest</h3>
+                    <div class="card-content">
+                        <div id="regressionChart" class="chart-container" style="height: 260px;"></div>
+                    </div>
+                </div>
+                
+                <div class="card has-content-expanded">
                     <h3>Volatility (ATR)</h3>
                     <div class="card-content">
                         <div id="atrChart" class="chart-container" style="height: 250px;"></div>
@@ -560,6 +567,9 @@
                     const historyData = await historyRes.json();
                     renderCharts(historyData, predictData.signal, parseInt(horizon));
                 }
+                
+                // Regression backtest chart
+                renderRegressionBacktest(predictData.regression_backtest);
 
             } catch (err) {
                 console.error(err);
@@ -567,6 +577,58 @@
             } finally {
                 loadingEl.style.display = 'none';
             }
+        }
+
+        function renderRegressionBacktest(backtest) {
+            const div = document.getElementById('regressionChart');
+            if (!div || typeof Plotly === 'undefined') return;
+            if (!backtest || !backtest.dates || !backtest.base_price) {
+                Plotly.purge(div);
+                return;
+            }
+            const isMobile = window.innerWidth < 768;
+            const layout = {
+                paper_bgcolor: '#1e293b',
+                plot_bgcolor: '#1e293b',
+                font: {family: 'Inter, sans-serif', color: '#94a3b8', size: isMobile ? 10 : 12},
+                margin: {t: 20, r: 10, l: 35, b: 30},
+                xaxis: {gridcolor: '#334155', zerolinecolor: '#334155'},
+                yaxis: {gridcolor: '#334155', zerolinecolor: '#334155', title: 'Price'},
+                hovermode: 'x unified',
+                showlegend: !isMobile,
+                legend: {orientation: 'h', y: 1.1}
+            };
+            const traces = [
+                {
+                    x: backtest.dates,
+                    y: backtest.base_price,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {color: '#9ca3af', width: 1.5},
+                    name: 'Base Price'
+                }
+            ];
+            if (backtest.target_price_true) {
+                traces.push({
+                    x: backtest.dates,
+                    y: backtest.target_price_true,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {color: '#4b5563', width: 1, dash: 'dot'},
+                    name: 'True Target Price'
+                });
+            }
+            if (backtest.target_price_pred) {
+                traces.push({
+                    x: backtest.dates,
+                    y: backtest.target_price_pred,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: {color: '#10b981', width: 2},
+                    name: 'Predicted Target Price'
+                });
+            }
+            Plotly.newPlot(div, traces, layout, {responsive: true, displayModeBar: false});
         }
 
         function renderPhaseState(phaseState) {
