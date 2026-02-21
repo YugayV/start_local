@@ -1937,33 +1937,41 @@ def get_signals_for_ticker(
             and split is not None
             and y_reg_test is not None
             and reg_pred_test is not None
-            and len(df_m) == len(df_model)
         ):
             idx_test = df_m.index[split:]
-            base_close = df_full.loc[idx_test, "Close"]
-            # true and predicted future prices from returns
+            base_close = df_m.loc[idx_test, "Close"]
             true_returns = np.asarray(y_reg_test, dtype="float32")
             pred_returns = np.asarray(reg_pred_test, dtype="float32")
             base_prices = base_close.values.astype("float32")
-            true_prices = base_prices * (1.0 + true_returns)
-            pred_prices = base_prices * (1.0 + pred_returns)
-            # cut to last 120 points to limit payload
-            max_points = 120
-            if len(idx_test) > max_points:
-                idx_test = idx_test[-max_points:]
-                base_prices = base_prices[-max_points:]
-                true_prices = true_prices[-max_points:]
-                pred_prices = pred_prices[-max_points:]
-            dates_bt = [
-                (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
-                for d in idx_test
-            ]
-            regression_backtest = {
-                "dates": dates_bt,
-                "base_price": [float(x) for x in base_prices],
-                "target_price_true": [float(x) for x in true_prices],
-                "target_price_pred": [float(x) for x in pred_prices],
-            }
+
+            # выравниваем длины на случай расхождений
+            n = min(len(base_prices), len(true_returns), len(pred_returns))
+            if n > 0:
+                base_prices = base_prices[-n:]
+                true_returns = true_returns[-n:]
+                pred_returns = pred_returns[-n:]
+                idx_test = idx_test[-n:]
+
+                true_prices = base_prices * (1.0 + true_returns)
+                pred_prices = base_prices * (1.0 + pred_returns)
+
+                max_points = 120
+                if len(idx_test) > max_points:
+                    idx_test = idx_test[-max_points:]
+                    base_prices = base_prices[-max_points:]
+                    true_prices = true_prices[-max_points:]
+                    pred_prices = pred_prices[-max_points:]
+
+                dates_bt = [
+                    (d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d))
+                    for d in idx_test
+                ]
+                regression_backtest = {
+                    "dates": dates_bt,
+                    "base_price": [float(x) for x in base_prices],
+                    "target_price_true": [float(x) for x in true_prices],
+                    "target_price_pred": [float(x) for x in pred_prices],
+                }
     except Exception:
         regression_backtest = None
 
