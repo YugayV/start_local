@@ -190,7 +190,7 @@ def add_targets(
     df["Target_Class"] = 0
     df.loc[(ret <= lower) & (ret < 0), "Target_Class"] = -1
     df.loc[(ret >= upper) & (ret > 0), "Target_Class"] = 1
-    df["Target_Reg"] = df["Future_Price_7d"]
+    df["Target_Reg"] = df["Future_Return_7d"]
     df = df.dropna()
     return df
 
@@ -1482,7 +1482,7 @@ def combine_signals(
     svc_model = model_data.get("svc_model")
     svc_scaler = model_data.get("svc_scaler")
     last_price = float(last_row["Close"])
-    last_reg_price_lgbm = float(reg_model.predict(x_last)[0])
+    last_reg_return_lgbm = float(reg_model.predict(x_last)[0])
 
     window = model_data.get("lstm_window", 20)
     close_series = df["Close"]
@@ -1494,13 +1494,13 @@ def combine_signals(
         len(values) >= window
         and "lstm_reg_model" in model_data
     )
-    last_reg_price_lstm = None
-    last_reg_price_hybrid = None
+    last_reg_return_lstm = None
+    last_reg_return_hybrid = None
     if has_lstm:
         seq = values[-window:]
         seq = seq.reshape((1, window, 1))
         lstm_reg_model = model_data["lstm_reg_model"]
-        last_reg_price_lstm = float(lstm_reg_model.predict(seq, verbose=0)[0, 0])
+        last_reg_return_lstm = float(lstm_reg_model.predict(seq, verbose=0)[0, 0])
 
         if model_weights and "lgbm" in model_weights and "lstm" in model_weights:
             w_lgbm = float(model_weights["lgbm"])
@@ -1518,7 +1518,7 @@ def combine_signals(
                 w_lgbm = 0.5
                 w_lstm = 0.5
 
-        last_reg_price_hybrid = w_lgbm * last_reg_price_lgbm + w_lstm * last_reg_price_lstm
+        last_reg_return_hybrid = w_lgbm * last_reg_return_lgbm + w_lstm * last_reg_return_lstm
 
     best_cls = classifier_override or model_data.get("best_classifier", "hybrid")
     last_class = 0
@@ -1553,14 +1553,14 @@ def combine_signals(
         last_class = 0
 
     price_model_lower = (price_model or "lstm").lower()
-    if price_model_lower == "hybrid" and last_reg_price_hybrid is not None:
-        last_reg_price = last_reg_price_hybrid
-    elif has_lstm and last_reg_price_lstm is not None:
-        last_reg_price = last_reg_price_lstm
+    if price_model_lower == "hybrid" and last_reg_return_hybrid is not None:
+        last_reg_return = last_reg_return_hybrid
+    elif has_lstm and last_reg_return_lstm is not None:
+        last_reg_return = last_reg_return_lstm
     else:
-        last_reg_price = last_reg_price_lgbm
+        last_reg_return = last_reg_return_lgbm
 
-    expected_return = (last_reg_price - last_price) / last_price
+    expected_return = last_reg_return
     pattern_bias = 0
     for p in patterns:
         p_lower = p.lower()
@@ -1631,7 +1631,7 @@ def combine_signals(
         "score": score,
         "action": action,
         "last_price": last_price,
-        "target_price": last_reg_price,
+        "target_price": last_price * (1.0 + expected_return),
         "reason": reason_text,
         "cls_model_used": best_cls,
     }
@@ -1920,6 +1920,9 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
             st.stop()
         df_full = add_features(df_raw)
         atr_info = get_atr_volatility_info(df_full)
+        riskcurve_phase = None
+        if interval == "1d":
+            riskcurve_phase = compute_riskcurve_phase(df_raw)
         df_model = add_targets(df_full.copy(), horizon=horizon, lower_q=lower_q, upper_q=upper_q)
         model_data = train_models(df_model)
     st.caption(
@@ -2021,6 +2024,50 @@ def build_dashboard_for_ticker(ticker: str, instrument_name: str):
         else:
             vol_text = "Volatility is currently Medium"
         st.write(f"{vol_text} (ATR(14) ≈ {current:.5f})")
+    if interval == "1d":
+        st.subheader("RiskCurve Phase (Trend / Flat / Uncertain)")
+        if riskcurve_phase:
+            label = riskcurve_phase.get("label")
+            prob_trend = riskcurve_phase.get("prob_trend")
+            prob_flat = riskcurve_phase.get("prob_flat")
+            prob_uncertain = riskcurve_phase.get("prob_uncertain")
+            col_phase_left, col_phase_right = st.columns([1, 2])
+            with col_phase_left:
+                st.metric("Current Phase", label or "Unknown")
+                if prob_trend is not None:
+                    st.metric("P(Trend)", f"{prob_trend*100:.1f}%")
+                if prob_flat is not None:
+                    st.metric("P(Flat)", f"{prob_flat*100:.1f}%")
+                if prob_uncertain is not None:
+                    st.metric("P(Uncertain)", f"{prob_uncertain*100:.1f}%")
+            with col_phase_right:
+                phase_df = pd.DataFrame(
+                    {
+                        "Phase": ["Trend", "Flat", "Uncertain"],
+                        "Probability": [
+                            prob_trend if prob_trend is not None else 0.0,
+                            prob_flat if prob_flat is not None else 0.0,
+                            prob_uncertain if prob_uncertain is not None else 0.0,
+                        ],
+                    }
+                )
+                phase_fig = go.Figure(
+                    data=[
+                        go.Bar(
+                            x=phase_df["Phase"],
+                            y=phase_df["Probability"],
+                        )
+                    ]
+                )
+                phase_fig.update_layout(
+                    yaxis_tickformat=".0%",
+                    yaxis_title="Probability",
+                    title="Phase Probabilities (Next Period)",
+                    template="plotly_white",
+                )
+                st.plotly_chart(phase_fig, use_container_width=True)
+        else:
+            st.write("RiskCurve phase analysis unavailable for this timeframe or dataset.")
     if metrics:
         st.markdown("**Model Quality (Test Split, Regression/Classification):**")
         col_lgbm, col_lstm, col_hybrid, col_svc = st.columns(4)
